@@ -6,14 +6,14 @@ import cv2
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
-from load_data import read_config
 from PIL import Image
 from imagehash import phash
-from load_data import *
 from typing import List, Tuple, Union, Optional,Dict
 
+import srcs.load_data as ld
+
 def read_thresholds_config(section: str = 'thresholds') -> dict:
-    params = read_config(section=section)
+    params = ld.read_config(section=section)
     return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
             for key in ['successor_value', 'phash_threshold']}
 
@@ -84,7 +84,7 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
     """
     frame_embedding_pairs = []
     timestamps = []
-    total_duration = get_video_duration(video_files)
+    total_duration = ld.get_video_duration(video_files)
     for vid_path in keyframe_files:
         vid_cap = cv2.VideoCapture(vid_path)
         for emb_idx, embedding in enumerate(embedding_values):

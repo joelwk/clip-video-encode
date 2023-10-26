@@ -2,18 +2,20 @@ import glob
 import json
 import os
 import cv2
+import logging
 import numpy as np
 from sklearn.preprocessing import normalize
 import configparser
-from segment_processing import *
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-from load_data import *
 from typing import List, Tuple, Optional, Dict, Union
 import numpy as np
 from PIL import Image
 from imagehash import phash
 from matplotlib.patches import Rectangle
+
+from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment
+import srcs.load_data as ld 
 
 class SegmentSuccessorAnalyzer:
     def __init__(self, total_duration: float, embedding_values: np.ndarray, thresholds: Dict[str, Optional[float]],
@@ -31,7 +33,7 @@ class SegmentSuccessorAnalyzer:
 
     @staticmethod
     def read_thresholds_config(section: str = 'thresholds') -> dict:
-        params = read_config(section=section)
+        params = ld.read_config(section=section)
         return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
                 for key in ['successor_value', 'phash_threshold']}
 
@@ -143,15 +145,15 @@ def is_clear_image(frame, lower_bound=10, upper_bound=245):
     return lower_bound < mean_intensity < upper_bound
 
 def run_analysis(analyzer_class, specific_videos=None):
-    thresholds = read_thresholds_config()  
-    params = read_config(section="directory")
-    video_ids = get_all_video_ids(params['originalframes'])
+    thresholds = SegmentSuccessorAnalyzer.read_thresholds_config()  
+    params = ld.read_config(section="directory")
+    video_ids = ld.get_all_video_ids(params['originalframes'])
     if specific_videos is not None:
         video_ids = [vid for vid in video_ids if vid in specific_videos]
     for video in video_ids:
         try:
-            keyframe_embedding_files = load_keyframe_embedding_files(video, params)
-            embedding_values = load_embedding_values(keyframe_embedding_files)
+            keyframe_embedding_files = ld.load_keyframe_embedding_files(video, params)
+            embedding_values = ld.load_embedding_values(keyframe_embedding_files)
         except ValueError as e:
             if str(e) == "No embedding files provided.":
                 logging.warning(f"Skipping video {video} due to missing embedding files.")
@@ -161,12 +163,12 @@ def run_analysis(analyzer_class, specific_videos=None):
                 continue
             else:
                 raise  # re-raise the caught exception if it's a different one
-        video_files = load_video_files(video, params)
+        video_files = ld.load_video_files(video, params)
         if not video_files:
             print(f"No video files found for video: {video}. Skipping analysis.")
             continue
-        key_video_files = load_key_video_files(video, params)
-        total_duration = get_video_duration(video_files)
+        key_video_files = ld.load_key_video_files(video, params)
+        total_duration = ld.get_video_duration(video_files)
         save_dir = f"./output/keyframes/{video}"
         os.makedirs(save_dir, exist_ok=True)
         analyzer = analyzer_class(total_duration, embedding_values, thresholds)
