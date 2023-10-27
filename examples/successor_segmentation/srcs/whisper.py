@@ -60,34 +60,40 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
         json.dump(keyframe_timestamps, f)
 
 def audio_pipeline(audio_path, audio_clip_output_dir, thresholds):
-    pipe = pipeline("automatic-speech-recognition",
-                    "openai/whisper-large-v2",
-                    torch_dtype=torch.float16,
-                    device="cuda:0")
-    outputs = pipe(audio_path,
-                   chunk_length_s=30,
-                   batch_size=24,
-                   return_timestamps=True)
-    chunks = outputs["chunks"]
-    
+    try:
+        pipe = pipeline("automatic-speech-recognition",
+                        "openai/whisper-large-v2",
+                        torch_dtype=torch.float16,
+                        device="cuda:0")
+        outputs = pipe(audio_path,
+                       chunk_length_s=30,
+                       batch_size=24,
+                       return_timestamps=True)
+    except Exception as e:
+        print(f"Error in pipeline: {e}")
+        return
+    chunks = outputs.get("chunks", [])
+    if not chunks:
+        print("No chunks returned by the pipeline.")
+        return
     output_aligned = []
     for idx, chunk in enumerate(chunks):
         segment_info = {
             'segment_idx': idx,
-            'timestamp': (chunk['timestamp'][0], chunk['timestamp'][1]),
-            'text': chunk['text']
+            'timestamp': chunk.get('timestamp', (None, None)),
+            'text': chunk.get('text', '')
         }
         output_aligned.append(segment_info)
-    
-    # Save timestamps to JSON
-    json_path = os.path.join(audio_clip_output_dir, 'outputs.json')
-    with open(json_path, 'w') as f:
-        json.dump(output_aligned, f)
-    
-    timestamps = sorted(set([time_point for chunk in outputs["chunks"] for time_point in chunk['timestamp']]))
-    segment_audio_using_keyframes(audio_path, audio_clip_output_dir, timestamps, thresholds, suffix_="whisper")
-
-
+    try:
+        timestamps = sorted(set([time_point for chunk in outputs["chunks"] for time_point in chunk['timestamp'] if time_point is not None]))
+    except Exception as e:
+        print(f"Error while sorting timestamps: {e}")
+        return
+    try:
+        segment_audio_using_keyframes(audio_path, audio_clip_output_dir, timestamps, thresholds, suffix_="whisper")
+    except Exception as e:
+        print(f"Error in segment_audio_using_keyframes: {e}")
+        
 def process_audio_files():
     try:
         thresholds = {'tolerance': 0.1}
