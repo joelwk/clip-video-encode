@@ -1,8 +1,10 @@
 import os
+import json
+import sys
 import subprocess
 import argparse
 from contextlib import contextmanager
-import sys
+
 @contextmanager
 def change_directory(destination):
     original_path = os.getcwd()
