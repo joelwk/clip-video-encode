@@ -84,6 +84,9 @@ def audio_pipeline(audio_path, audio_clip_output_dir, thresholds):
             'text': chunk.get('text', '')
         }
         output_aligned.append(segment_info)
+    json_path = os.path.join(audio_clip_output_dir, 'outputs.json')
+    with open(json_path, 'w') as f:
+        json.dump(output_aligned, f)
     try:
         timestamps = sorted(set([time_point for chunk in outputs["chunks"] for time_point in chunk['timestamp'] if time_point is not None]))
     except Exception as e:
