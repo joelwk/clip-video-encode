@@ -2,6 +2,9 @@ import os
 import sys
 import json
 import subprocess
+import glob
+from srcs.segment_processing import read_thresholds_config
+
 def install_requirements():
     try:
         import torch
@@ -59,14 +62,14 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
     with open(json_path, 'w') as f:
         json.dump(keyframe_timestamps, f)
 
-def audio_pipeline(audio_path, audio_clip_output_dir, thresholds):
+def audio_pipeline(audio_path, audio_clip_output_dir, thresholds, chunk_length):
     try:
         pipe = pipeline("automatic-speech-recognition",
                         "openai/whisper-large-v2",
                         torch_dtype=torch.float16,
                         device="cuda:0")
         outputs = pipe(audio_path,
-                       chunk_length_s=30,
+                       chunk_length_s=chunk_length,
                        batch_size=24,
                        return_timestamps=True)
     except Exception as e:
@@ -99,21 +102,23 @@ def audio_pipeline(audio_path, audio_clip_output_dir, thresholds):
         
 def process_audio_files():
     try:
-        thresholds = {'tolerance': 0.1}
+        thresholds = read_thresholds_config()
         base_path = './completedatasets/'
         for n in os.listdir(base_path):
-            inital_input_directory = os.path.join(base_path, n, 'originalvideos')
+            initial_input_directory = os.path.join(base_path, n, 'originalvideos')
             audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
+            parent_dir = f'/content/completedatasets/{n}/keyframe_audio_clips'
+            total_chunks = len(glob.glob(f"{parent_dir}/*.m4a"))
             if not os.path.exists(audio_clip_output_dir):
                 os.makedirs(audio_clip_output_dir)
-            for audio_file in os.listdir(inital_input_directory):
+            for audio_file in os.listdir(initial_input_directory):
                 if audio_file.endswith('.m4a'):
                     individual_output_dir = os.path.join(audio_clip_output_dir, os.path.splitext(audio_file)[0])
                     if not os.path.exists(individual_output_dir):
                         os.makedirs(individual_output_dir)
-                    convert_audio_files(inital_input_directory, individual_output_dir)
+                    convert_audio_files(initial_input_directory, individual_output_dir)
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
-                    audio_pipeline(audio_path, individual_output_dir, thresholds)
+                    audio_pipeline(audio_path, individual_output_dir, thresholds, total_chunks)
     except Exception as e:
-      print(f"An exception occurred: {e}")
+        print(f"An exception occurred: {e}")
