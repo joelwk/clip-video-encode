@@ -16,6 +16,7 @@ def install_requirements():
         subprocess.run(["pip", "install", "accelerate", "optimum"])
         subprocess.run(["pip", "install", "ipython-autotime"])
         subprocess.run(["pip", "install", "pydub"])
+
 install_requirements()
 
 import torch
@@ -36,16 +37,20 @@ def convert_audio_files(input_directory, output_directory, output_format="flac")
             audio.export(output_path, format=output_format)
             print(f"Converted {m4a_path} to {output_path}")
 
-def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_timestamps, thresholds, suffix_=None):
-    start_time = 0
-    segment_idx = 0
-    for end_time in keyframe_timestamps:
+def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, output_aligned, thresholds, suffix_=None):
+    os.makedirs(audio_clip_output_dir, exist_ok=True)
+
+    keyframe_timestamps = [segment['timestamp'][0] for segment in output_aligned]
+    for segment in output_aligned:
+        start_time = segment['timestamp'][0]
+        end_time = segment['timestamp'][1]
         adjusted_start_time, adjusted_end_time = start_time, end_time
         if "keyframe" in str(suffix_):
             tolerance = float(thresholds['tolerance']) * (end_time - start_time)
             adjusted_start_time += tolerance
             adjusted_end_time -= tolerance
-        output_path = f"{audio_clip_output_dir}/keyframe_audio_clip_{segment_idx}_{suffix_}.flac"
+        suffix_str = f"_{suffix_}" if suffix_ else ""
+        output_path = f"{audio_clip_output_dir}/segment_{segment['segment_idx']}{suffix_str}.flac"
         command = [
             'ffmpeg',
             '-ss', str(adjusted_start_time),
@@ -54,11 +59,8 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
             '-acodec', 'flac',
             '-y', output_path
         ]
-        subprocess.run(command)
-        start_time = end_time
-        segment_idx += 1 
-    # Save timestamps to JSON
-    json_path = os.path.join(audio_clip_output_dir, 'timestamps.json')
+        subprocess.run(command, check=True)
+    json_path = os.path.join(audio_clip_output_dir, 'keyframe_timestamps.json')
     with open(json_path, 'w') as f:
         json.dump(keyframe_timestamps, f)
 
@@ -96,7 +98,7 @@ def audio_pipeline(audio_path, audio_clip_output_dir, thresholds, chunk_length):
         print(f"Error while sorting timestamps: {e}")
         return
     try:
-        segment_audio_using_keyframes(audio_path, audio_clip_output_dir, timestamps, thresholds, suffix_="whisper")
+        segment_audio_using_keyframes(audio_path, audio_clip_output_dir, output_aligned, thresholds, suffix_="whisper")
     except Exception as e:
         print(f"Error in segment_audio_using_keyframes: {e}")
         
