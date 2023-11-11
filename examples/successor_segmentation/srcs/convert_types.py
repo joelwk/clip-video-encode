@@ -2,6 +2,7 @@ import os
 import json
 import shutil
 from pydub import AudioSegment
+
 def convert_audio_files(input_directory, output_directory, output_format="mp3"):
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -59,12 +60,28 @@ def convert_audio_files(input_directory, output_directory, output_format="mp3"):
                         with open(text_path, 'w') as text_file:
                             text_file.write(segment_data.get("text", ""))
                         print(f"Created text file for segment {segment_idx}")
-                        
+def move_and_remove_subdirectory(parent_directory):
+    # Iterate over subdirectories in the parent directory
+    for subdir in os.listdir(parent_directory):
+        subdir_path = os.path.join(parent_directory, subdir)
+        if os.path.isdir(subdir_path) and subdir.isdigit():
+            # Move keyframe_timestamps.json if it exists in the subdirectory
+            keyframe_timestamps_path = os.path.join(subdir_path, "keyframe_timestamps.json")
+            if os.path.exists(keyframe_timestamps_path):
+                new_keyframe_timestamps_path = os.path.join(parent_directory, "keyframe_timestamps.json")
+                shutil.move(keyframe_timestamps_path, new_keyframe_timestamps_path)
+                print(f"Moved {keyframe_timestamps_path} to {new_keyframe_timestamps_path}")
+
+            # Remove the integer-named subdirectory
+            shutil.rmtree(subdir_path)
+            print(f"Removed subdirectory {subdir_path}")
+                     
 def main():
     input_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
     output_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
     output_format = "mp3"
     convert_audio_files(input_directory, output_directory, output_format)
-
+    parent_directory = '/content/completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
+    move_and_remove_subdirectory(parent_directory)
 if __name__ == '__main__':
     main()
