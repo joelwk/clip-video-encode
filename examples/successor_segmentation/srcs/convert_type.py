@@ -1,0 +1,70 @@
+import os
+import json
+import shutil
+from pydub import AudioSegment
+def convert_audio_files(input_directory, output_directory, output_format="mp3"):
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Traverse subdirectories
+    for subdir, dirs, files in os.walk(input_directory):
+        for filename in files:
+            if filename.endswith(".flac"):
+                flac_path = os.path.join(subdir, filename)
+                # Extract the base filename without the format and additional suffix
+                base_filename = filename.replace("_whisper.flac", "")
+
+                # Extract the numeric part for segment matching
+                digits = ''.join(filter(str.isdigit, base_filename))
+                if digits:
+                    segment_idx = int(digits)
+                else:
+                    continue  # Skip this file if no digits found
+
+                output_filename = f"keyframe_audio_clip_{segment_idx}.{output_format}"
+                output_path = os.path.join(output_directory, output_filename)
+
+                if os.path.exists(output_path):
+                    print(f"File {output_path} already exists. Overwriting.")
+
+                audio = AudioSegment.from_file(flac_path, format="flac")
+                audio.export(output_path, format=output_format)
+                print(f"Converted {flac_path} to {output_path}")
+
+                # Remove the original flac file
+                os.remove(flac_path)
+                print(f"Removed {flac_path}")
+
+            elif filename.endswith(".json"):
+                # Handle JSON files
+                json_path = os.path.join(subdir, filename)
+                new_json_path = os.path.join(output_directory, filename)  # Keep original filename
+                shutil.copy(json_path, new_json_path)
+                print(f"Copied {json_path} to {new_json_path}")
+
+                # Read JSON data for text file creation
+                with open(new_json_path, 'r') as json_file:
+                    try:
+                        segments_data = json.load(json_file)
+                    except json.JSONDecodeError:
+                        print(f"Error reading JSON data from {new_json_path}")
+                        continue
+
+                # Process each segment data
+                for segment_data in segments_data:
+                    if isinstance(segment_data, dict) and "segment_idx" in segment_data:
+                        segment_idx = segment_data["segment_idx"]
+                        text_filename = f"keyframe_audio_clip_{segment_idx}.txt"
+                        text_path = os.path.join(output_directory, text_filename)
+                        with open(text_path, 'w') as text_file:
+                            text_file.write(segment_data.get("text", ""))
+                        print(f"Created text file for segment {segment_idx}")
+                        
+def main():
+    input_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
+    output_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
+    output_format = "mp3"
+    convert_audio_files(input_directory, output_directory, output_format)
+
+if __name__ == '__main__':
+    main()

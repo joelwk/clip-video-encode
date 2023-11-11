@@ -72,7 +72,7 @@ def audio_pipeline(audio_path, audio_clip_output_dir, thresholds, chunk_length):
                         device="cuda:0")
         outputs = pipe(audio_path,
                        chunk_length_s=chunk_length,
-                       batch_size=24,
+                       batch_size=4,
                        return_timestamps=True)
     except Exception as e:
         print(f"Error in pipeline: {e}")
@@ -109,7 +109,7 @@ def process_audio_files():
         for n in os.listdir(base_path):
             initial_input_directory = os.path.join(base_path, n, 'originalvideos')
             audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
-            parent_dir = f'/content/completedatasets/{n}/keyframe_audio_clips'
+            parent_dir = f'./completedatasets/{n}/keyframe_audio_clips'
             total_chunks = len(glob.glob(f"{parent_dir}/*.m4a"))
             if not os.path.exists(audio_clip_output_dir):
                 os.makedirs(audio_clip_output_dir)
