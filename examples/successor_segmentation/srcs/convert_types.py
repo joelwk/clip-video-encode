@@ -44,7 +44,7 @@ def convert_audio_files(output_format="mp3"):
                     else:
                         print(f"File {new_json_path} is the same as the source. Skipping copy.")
 
-                    with open(new_json_path, 'r') as json_file:
+                    with open(new_json_path, 'r', encoding='utf-8') as json_file:
                         try:
                             segments_data = json.load(json_file)
                         except json.JSONDecodeError:
@@ -56,7 +56,7 @@ def convert_audio_files(output_format="mp3"):
                                 segment_idx = segment_data["segment_idx"]
                                 text_filename = f"keyframe_audio_clip_{segment_idx}.txt"
                                 text_path = os.path.join(audio_clip_output_dir, text_filename)
-                                with open(text_path, 'w') as text_file:
+                                with open(text_path, 'w', encoding='utf-8') as text_file: 
                                     text_file.write(segment_data.get("text", ""))
                                 print(f"Created text file for segment {segment_idx}")
 
