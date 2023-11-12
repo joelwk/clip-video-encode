@@ -12,17 +12,15 @@ def convert_audio_files(output_format="mp3"):
             os.makedirs(audio_clip_output_dir)
         for subdir, dirs, files in os.walk(audio_clip_output_dir):
             for filename in files:
+                file_path = os.path.join(subdir, filename)
                 if filename.endswith(".flac"):
-                    flac_path = os.path.join(subdir, filename)
-                    # Extract the base filename without the format and additional suffix
+                    # Process .flac files
                     base_filename = filename.replace("_whisper.flac", "")
-
-                    # Extract the numeric part for segment matching
                     digits = ''.join(filter(str.isdigit, base_filename))
                     if digits:
                         segment_idx = int(digits)
                     else:
-                        continue  # Skip this file if no digits found
+                        continue
 
                     output_filename = f"keyframe_audio_clip_{segment_idx}.{output_format}"
                     output_path = os.path.join(audio_clip_output_dir, output_filename)
@@ -30,25 +28,22 @@ def convert_audio_files(output_format="mp3"):
                     if os.path.exists(output_path):
                         print(f"File {output_path} already exists. Overwriting.")
 
-                        audio = AudioSegment.from_file(flac_path, format="flac")
-                        audio.export(output_path, format=output_format)
-                        print(f"Converted {flac_path} to {output_path}")
+                    audio = AudioSegment.from_file(file_path, format="flac")
+                    audio.export(output_path, format=output_format)
+                    print(f"Converted {file_path} to {output_path}")
 
-                        # Remove the original flac file
-                        os.remove(flac_path)
-                        print(f"Removed {flac_path}")
+                    os.remove(file_path)
+                    print(f"Removed {file_path}")
 
                 elif filename.endswith(".json"):
-                    # Handle JSON files
-                    json_path = os.path.join(subdir, filename)
-                    new_json_path = os.path.join(audio_clip_output_dir, filename)  # Keep original filename
-                    if json_path != new_json_path:
-                        shutil.copy(json_path, new_json_path)
-                        print(f"Copied {json_path} to {new_json_path}")
+                    # Process JSON files
+                    new_json_path = os.path.join(audio_clip_output_dir, filename)
+                    if file_path != new_json_path:
+                        shutil.copy(file_path, new_json_path)
+                        print(f"Copied {file_path} to {new_json_path}")
                     else:
                         print(f"File {new_json_path} is the same as the source. Skipping copy.")
 
-                    # Read JSON data for text file creation
                     with open(new_json_path, 'r') as json_file:
                         try:
                             segments_data = json.load(json_file)
@@ -56,7 +51,6 @@ def convert_audio_files(output_format="mp3"):
                             print(f"Error reading JSON data from {new_json_path}")
                             continue
 
-                        # Process each segment data
                         for segment_data in segments_data:
                             if isinstance(segment_data, dict) and "segment_idx" in segment_data:
                                 segment_idx = segment_data["segment_idx"]
@@ -68,7 +62,7 @@ def convert_audio_files(output_format="mp3"):
 
         processed_dirs.append(audio_clip_output_dir)  
 
-    return processed_dirs  
+    return processed_dirs
 
 def move_and_remove_subdirectory(audio_clip_output_dir):
     for subdir in os.listdir(audio_clip_output_dir):
