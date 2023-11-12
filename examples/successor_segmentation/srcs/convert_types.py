@@ -3,12 +3,14 @@ import json
 import shutil
 from pydub import AudioSegment
 
-def convert_audio_files(input_directory, output_directory, output_format="mp3"):
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-
+def convert_audio_files(output_format="mp3"):
+    base_path = './completedatasets/'
+    for n in os.listdir(base_path):
+        audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
+    if not os.path.exists(audio_clip_output_dir):
+        os.makedirs(audio_clip_output_dir)
     # Traverse subdirectories
-    for subdir, dirs, files in os.walk(input_directory):
+    for subdir, dirs, files in os.walk(audio_clip_output_dir):
         for filename in files:
             if filename.endswith(".flac"):
                 flac_path = os.path.join(subdir, filename)
@@ -23,7 +25,7 @@ def convert_audio_files(input_directory, output_directory, output_format="mp3"):
                     continue  # Skip this file if no digits found
 
                 output_filename = f"keyframe_audio_clip_{segment_idx}.{output_format}"
-                output_path = os.path.join(output_directory, output_filename)
+                output_path = os.path.join(audio_clip_output_dir, output_filename)
 
                 if os.path.exists(output_path):
                     print(f"File {output_path} already exists. Overwriting.")
@@ -39,7 +41,7 @@ def convert_audio_files(input_directory, output_directory, output_format="mp3"):
             elif filename.endswith(".json"):
                 # Handle JSON files
                 json_path = os.path.join(subdir, filename)
-                new_json_path = os.path.join(output_directory, filename)  # Keep original filename
+                new_json_path = os.path.join(audio_clip_output_dir, filename)  # Keep original filename
                 shutil.copy(json_path, new_json_path)
                 print(f"Copied {json_path} to {new_json_path}")
 
@@ -56,32 +58,19 @@ def convert_audio_files(input_directory, output_directory, output_format="mp3"):
                     if isinstance(segment_data, dict) and "segment_idx" in segment_data:
                         segment_idx = segment_data["segment_idx"]
                         text_filename = f"keyframe_audio_clip_{segment_idx}.txt"
-                        text_path = os.path.join(output_directory, text_filename)
+                        text_path = os.path.join(audio_clip_output_dir, text_filename)
                         with open(text_path, 'w') as text_file:
                             text_file.write(segment_data.get("text", ""))
                         print(f"Created text file for segment {segment_idx}")
-def move_and_remove_subdirectory(parent_directory):
+                        
     # Iterate over subdirectories in the parent directory
-    for subdir in os.listdir(parent_directory):
-        subdir_path = os.path.join(parent_directory, subdir)
+    for subdir in os.listdir(audio_clip_output_dir):
+        subdir_path = os.path.join(audio_clip_output_dir, subdir)
         if os.path.isdir(subdir_path) and subdir.isdigit():
-            # Move keyframe_timestamps.json if it exists in the subdirectory
-            keyframe_timestamps_path = os.path.join(subdir_path, "keyframe_timestamps.json")
-            if os.path.exists(keyframe_timestamps_path):
-                new_keyframe_timestamps_path = os.path.join(parent_directory, "keyframe_timestamps.json")
-                shutil.move(keyframe_timestamps_path, new_keyframe_timestamps_path)
-                print(f"Moved {keyframe_timestamps_path} to {new_keyframe_timestamps_path}")
-
-            # Remove the integer-named subdirectory
             shutil.rmtree(subdir_path)
             print(f"Removed subdirectory {subdir_path}")
                      
 def main():
-    input_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
-    output_directory = './completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
-    output_format = "mp3"
-    convert_audio_files(input_directory, output_directory, output_format)
-    parent_directory = '/content/completedatasets/1/keyframe_audio_clips/whisper_audio_segments'
-    move_and_remove_subdirectory(parent_directory)
+    convert_audio_files()
 if __name__ == '__main__':
     main()
