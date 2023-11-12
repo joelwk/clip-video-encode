@@ -30,7 +30,8 @@ def prepare_dataset_requirements(directory, external_parquet_path=None):
         # Otherwise, create a new Parquet file from the default JSON data
         dataset_requirements = {
             "data": [
-                {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"}
+                {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"},
+                {"url": "www.youtube.com/watch?v=ND92YNQv0TU", "caption": "Macaque Monkeys at War"}
             ]
         }
         os.makedirs(directory, exist_ok=True)
