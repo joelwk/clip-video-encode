@@ -8,17 +8,19 @@ from srcs.whisper import process_audio_files
 from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
 from srcs.fold_seams import main as fold_seams_main
 from srcs.convert_types import main as convert_types_main
-def run_all_scripts():
+
+def run_all_scripts(segment_video=False, segment_audio=True, extract_keyframes=False, compute_embeddings=False, specific_videos=None):
+
     # Run the main function from rename_and_move.py
     rename_and_move_main()
     
     # Run the main function from successor_segmentation and fold_seams
     run_analysis(SegmentSuccessorAnalyzer)
-    fold_seams_main()
-    
-    # Run the main function from segment_averaging.py
-    segment_averaging_main()
-  
+
+    fold_seams_main(segment_video, segment_audio, specific_videos)
+    if compute_embeddings:
+        segment_averaging_main()
+
     # Run the main function from move_and_group.py
     move_and_group_main()
     process_audio_files()

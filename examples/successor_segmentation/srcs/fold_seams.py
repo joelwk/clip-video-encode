@@ -110,40 +110,44 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
         segment_idx += 1
         current_time = end_time
 
-def main(specific_videos=None):
+def main(segment_video=False, segment_audio=False, specific_videos=None): # indicate specific video with [1,2,3] for all 3 videos, or [1] for 1 video
     params = read_config(section="directory")
-    thresholds = read_thresholds_config()  # Read thresholds here for consistency
-    # Validate types
-    if specific_videos and not isinstance(specific_videos, list):
-        raise TypeError("specific_videos must be a list or None.")
-    
-    video_ids = get_all_video_ids(params['originalframes']) if specific_videos is None else specific_videos
-    for vid in video_ids:
-        setup_for_video_audio(vid, params, thresholds)  # Pass thresholds as an argument
+    thresholds = read_thresholds_config()  # Read thresholds for consistency
 
-def setup_for_video_audio(vid, params, thresholds):
-    # Validate types
-    thresholds = read_thresholds_config()
+    # Determine which videos to process
+    video_ids = get_all_video_ids(params['originalframes']) if specific_videos is None else specific_videos
+
+    for vid in video_ids:
+        audio_files, video_files, key_video_files, embedding_files, keyframe_data = setup_for_video_audio(vid, params)
+        keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
+
+        if segment_video:
+            # Segment video using keyframes and embeddings
+            segment_video_using_keyframes_and_embeddings(key_video_files[0], params['video_output_dir'], keyframe_timestamps, thresholds)
+
+        if segment_audio:
+            audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
+            os.makedirs(audio_clip_output, exist_ok=True)
+            # Segment audio using keyframes (assuming a similar function exists)
+            segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
+
+def setup_for_video_audio(vid, params):
+    # Load files and data required for both video and audio segmentation
+    # Returns the necessary files and data
     video_files = load_video_files(str(vid), params)
     key_video_files = load_key_video_files(str(vid), params)
     embedding_files = load_keyframe_embedding_files(str(vid), params)
     embedding_values = load_embedding_values(embedding_files)
-    clip_output = f"./output/keyframe_clip/{vid}"
-    os.makedirs(clip_output, exist_ok=True)
+    audio_files = load_audio_files(str(vid), params)
+
+    # Read keyframe data
     json_path = os.path.join(".", "output", "keyframes", str(vid), "keyframe_data.json")
     if not os.path.exists(json_path):
         print(f"No keyframe_data.json found for video id {vid}. Skipping.")
-        return
+        return None, None, None, None
     with open(json_path, 'r') as f:
         keyframe_data = json.load(f)
 
-    # Extract timestamps from the keyframe_data
-    keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
-    # Using the union of timestamps to segment video
-    segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps,thresholds, suffix_='_fromkeyvideo_filtered')
-    
-    # New audio segmentation
-    audio_files = load_audio_files(str(vid), params)
     audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
     os.makedirs(audio_clip_output, exist_ok=True)
-    segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
+    return audio_files, video_files, key_video_files, embedding_files, keyframe_data
