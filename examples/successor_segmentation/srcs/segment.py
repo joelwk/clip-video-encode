@@ -9,7 +9,15 @@ from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
 from srcs.fold_seams import main as fold_seams_main
 from srcs.convert_types import main as convert_types_main
 
-def run_all_scripts(segment_video=False, segment_audio=True, extract_keyframes=False, compute_embeddings=False, specific_videos=None):
+''' 
+segment_video - segment video by time stamps to output individual mp4's
+segment_video - segment audio by time stamps to output individual m4a's and flac's with associated whisper transcripts
+compute_embeddings - average each embedding value for each video and output to a single npy file - disable if segment_video is False ** need to condition this in the future*
+specific_videos - indicate specific video with [1,2,3] for all 3 videos, or [1] for 1 video
+
+'''
+
+def run_all_scripts(segment_video=False, segment_audio=True, compute_embeddings=False, specific_videos=None):
 
     # Run the main function from rename_and_move.py
     rename_and_move_main()

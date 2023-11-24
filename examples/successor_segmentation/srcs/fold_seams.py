@@ -110,7 +110,7 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
         segment_idx += 1
         current_time = end_time
 
-def main(segment_video=False, segment_audio=False, specific_videos=None): # indicate specific video with [1,2,3] for all 3 videos, or [1] for 1 video
+def main(segment_video, segment_audio, specific_videos):
     params = read_config(section="directory")
     thresholds = read_thresholds_config()  # Read thresholds for consistency
 
