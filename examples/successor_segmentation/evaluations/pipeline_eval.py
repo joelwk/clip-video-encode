@@ -42,8 +42,6 @@ def main():
         selected_config = config[args.mode]
         create_directories(selected_config)
         install_requirements()
-        if result != 0:
-            return result
     except Exception as e:
         print(f"An exception occurred: {e}")
         return 1

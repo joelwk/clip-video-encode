@@ -5,18 +5,10 @@ import subprocess
 import argparse
 import numpy as np
 import glob
-from evaluations.prepare import read_config, generate_embeddings,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs
+from evaluations.prepare import read_config, generate_embeddings,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs, get_embeddings, model
 import cv2
 import open_clip
 import torch
-
-from evaluations.prepare import (global_model_clip, global_preprocess_val, 
-                     global_embeddings, main as prepare_main)
-
-# Execute the main function from prepare.py to initialize the global variables
-prepare_main_status = prepare_main()
-if prepare_main_status != 0:
-    raise Exception("Failed to initialize model and embeddings from prepare.py")
 
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Define thresholds
@@ -36,6 +28,9 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
         
 def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=True):
     params = read_config(section="evaluations")
+    model_clip, preprocess_train, preprocess_val, tokenizer = model()
+    text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence = get_embeddings(model_clip, tokenizer)
+
     # Form the paths to the embeddings
     text_features_path = os.path.join(params['labels'], 'text_features.npy')
     text_features_if_person_path = os.path.join(params['labels'], 'text_features_if_person.npy')
@@ -57,21 +52,16 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
 
     labels = read_config(section="labels")
     
-    # Unpack embeddings
-    (text_features, text_features_if_person, text_features_type_person, 
-     text_features_if_number_of_faces, text_features_orientation, 
-     text_features_if_engaged, text_features_valence) = global_embeddings
-
     # Set up the output directory for processed images
     run_output_dir = os.path.join(output_dir, video_identifier)
     os.makedirs(run_output_dir, exist_ok=True)
 
     # Load and preprocess the image
     img = Image.open(image_path)
-    image_preprocessed = global_preprocess_val(img).unsqueeze(0)
+    image_preprocessed = preprocess_val(img).unsqueeze(0)
 
     # Encode the image using the CLIP model and normalize the features
-    image_features = global_model_clip.encode_image(image_preprocessed)
+    image_features = model_clip.encode_image(image_preprocessed)
     image_features = image_features.detach().numpy()
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
 

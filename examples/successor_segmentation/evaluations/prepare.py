@@ -10,7 +10,9 @@ import tensorflow as tf
 import torch
 from PIL import Image
 
-def read_config(section, config_path='./clip-video-encode/examples/successor_segmentation/config.ini'):
+config_path='./clip-video-encode/examples/successor_segmentation/config.ini'
+
+def read_config(section, config_path=config_path):
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file {config_path} not found.")
     config = configparser.ConfigParser()
@@ -67,7 +69,7 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=-1, keepdims=True)
 
-def read_labels(section, config_path):
+def read_labels(section, config_path=config_path):
     config = read_config(section, config_path)
     labels = config['labels'].split(', ')
     return labels
@@ -106,14 +108,14 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
         else:
             print(f"No digits found in filename: {keyframe_filename}")
 
-def model(config_path):
+def model(config_path=config_path):
     model_config = read_config('evaluations', config_path)
     model_name = model_config.get('model')
     model_clip, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(model_name)
     tokenizer = open_clip.get_tokenizer(model_name)
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
-def get_embeddings(model_clip, tokenizer, config_path):
+def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations', config_path)
     labels = read_config('labels', config_path)
     text_features = generate_embeddings(tokenizer, model_clip, labels['emotions'], f"{evals['labels']}/text_features.npy")
@@ -124,18 +126,3 @@ def get_embeddings(model_clip, tokenizer, config_path):
     text_features_if_engaged = generate_embeddings(tokenizer, model_clip, labels['engagementlabels'], f"{evals['labels']}/text_features_if_engaged.npy")
     text_features_valence = generate_embeddings(tokenizer, model_clip, labels['valence'], f"{evals['labels']}/text_valence.npy")
     return text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence
-
-# Global variables for model and embeddings
-global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer, global_embeddings = None, None, None, None, None
-def main():
-    global global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer, global_embeddings
-    try:
-        config_path = './clip-video-encode/examples/successor_segmentation/config.ini'
-        global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer = model(config_path)
-        global_embeddings = get_embeddings(global_model_clip, global_tokenizer, config_path)
-        return 0  # Return status code 0 for success
-    except Exception as e:
-        print(f"Error occurred: {e}", file=sys.stderr)
-        return 1  # Return status code 1 for error
-if __name__ == "__main__":
-    main()

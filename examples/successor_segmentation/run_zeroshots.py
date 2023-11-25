@@ -16,7 +16,6 @@ def run_script(script_main_func, script_name):
 def run():
     scripts = [
         ("main", "evaluations.pipeline_eval"),
-        ("main", "evaluations.prepare"),
         ("main", "evaluations.image_eval")
     ]
     
