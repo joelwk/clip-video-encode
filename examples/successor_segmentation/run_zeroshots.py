@@ -15,7 +15,7 @@ def run_script(script_main_func, script_name):
 
 def run():
     scripts = [
-        ("main", "evaluations.pipeline"),
+        ("main", "evaluations.pipeline_eval"),
         ("main", "evaluations.prepare"),
         ("main", "evaluations.image_eval")
     ]
@@ -27,6 +27,6 @@ def run():
         if exit_status is not None and exit_status != 0:
             print(f"Exiting due to error in script: {script_path}.{script_func_name}")  # Debug statement - keeping for information output
             sys.exit(exit_status)
-            
+
 if __name__ == "__main__":
     run()

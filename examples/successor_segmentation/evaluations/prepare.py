@@ -1,5 +1,14 @@
 import configparser
 import shutil
+import sys
+import os
+import json
+
+import numpy as np
+import open_clip
+import tensorflow as tf
+import torch
+from PIL import Image
 
 def read_config(section, config_path):
     if not os.path.exists(config_path):
@@ -104,7 +113,8 @@ def model(config_path):
     tokenizer = open_clip.get_tokenizer(model_name)
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
-def get_embeddings(model_clip, tokenizer, evals, config_path):
+def get_embeddings(model_clip, tokenizer, config_path):
+    evals = read_config('evaluations', config_path)
     emotions = read_labels('emotions', config_path)
     check_if_person = read_labels('checkifperson', config_path)
     check_type_person = read_labels('checktypeperson', config_path)
@@ -112,13 +122,13 @@ def get_embeddings(model_clip, tokenizer, evals, config_path):
     engagement_labels = read_labels('engagementlabels', config_path)
     orientation_labels = read_labels('orientationlabels', config_path)
     valence = read_labels('valence', config_path)
-    text_features = generate_embeddings(tokenizer, model_clip, emotions, f"{evals['original_videos']}/text_features.npy")
-    text_features_if_person = generate_embeddings(tokenizer, model_clip, check_if_person, f"{evals['embedding_labels']}/text_features_if_person.npy")
-    text_features_type_person = generate_embeddings(tokenizer, model_clip, check_type_person, f"{evals['embedding_labels']}/text_features_type_person.npy")
-    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, number_of_faces, f"{evals['embedding_labels']}/text_features_number_of_faces.npy")
-    text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels, f"{evals['embedding_labels']}/text_features_orientation.npy")
-    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels, f"{evals['embedding_labels']}/text_features_if_engaged.npy")
-    text_features_valence = generate_embeddings(tokenizer, model_clip, valence, f"{evals['embedding_labels']}/text_valence.npy")
+    text_features = generate_embeddings(tokenizer, model_clip, emotions, f"{evals['labels']}/text_features.npy")
+    text_features_if_person = generate_embeddings(tokenizer, model_clip, check_if_person, f"{evals['labels']}/text_features_if_person.npy")
+    text_features_type_person = generate_embeddings(tokenizer, model_clip, check_type_person, f"{evals['labels']}/text_features_type_person.npy")
+    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, number_of_faces, f"{evals['labels']}/text_features_number_of_faces.npy")
+    text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels, f"{evals['labels']}/text_features_orientation.npy")
+    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels, f"{evals['labels']}/text_features_if_engaged.npy")
+    text_features_valence = generate_embeddings(tokenizer, model_clip, valence, f"{evals['labels']}/text_valence.npy")
     return text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence
 
 def main():
