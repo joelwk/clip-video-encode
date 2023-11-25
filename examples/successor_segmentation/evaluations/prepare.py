@@ -10,7 +10,7 @@ import tensorflow as tf
 import torch
 from PIL import Image
 
-def read_config(section, config_path):
+def read_config(section, config_path='./clip-video-encode/examples/successor_segmentation/config.ini'):
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file {config_path} not found.")
     config = configparser.ConfigParser()
@@ -115,32 +115,27 @@ def model(config_path):
 
 def get_embeddings(model_clip, tokenizer, config_path):
     evals = read_config('evaluations', config_path)
-    emotions = read_labels('emotions', config_path)
-    check_if_person = read_labels('checkifperson', config_path)
-    check_type_person = read_labels('checktypeperson', config_path)
-    number_of_faces = read_labels('numberoffaces', config_path)
-    engagement_labels = read_labels('engagementlabels', config_path)
-    orientation_labels = read_labels('orientationlabels', config_path)
-    valence = read_labels('valence', config_path)
-    text_features = generate_embeddings(tokenizer, model_clip, emotions, f"{evals['labels']}/text_features.npy")
-    text_features_if_person = generate_embeddings(tokenizer, model_clip, check_if_person, f"{evals['labels']}/text_features_if_person.npy")
-    text_features_type_person = generate_embeddings(tokenizer, model_clip, check_type_person, f"{evals['labels']}/text_features_type_person.npy")
-    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, number_of_faces, f"{evals['labels']}/text_features_number_of_faces.npy")
-    text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels, f"{evals['labels']}/text_features_orientation.npy")
-    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels, f"{evals['labels']}/text_features_if_engaged.npy")
-    text_features_valence = generate_embeddings(tokenizer, model_clip, valence, f"{evals['labels']}/text_valence.npy")
+    labels = read_config('labels', config_path)
+    text_features = generate_embeddings(tokenizer, model_clip, labels['emotions'], f"{evals['labels']}/text_features.npy")
+    text_features_if_person = generate_embeddings(tokenizer, model_clip, labels['checkifperson'], f"{evals['labels']}/text_features_if_person.npy")
+    text_features_type_person = generate_embeddings(tokenizer, model_clip, labels['checktypeperson'], f"{evals['labels']}/text_features_type_person.npy")
+    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, labels['numberoffaces'], f"{evals['labels']}/text_features_number_of_faces.npy")
+    text_features_orientation = generate_embeddings(tokenizer, model_clip, labels['orientationlabels'], f"{evals['labels']}/text_features_orientation.npy")
+    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, labels['engagementlabels'], f"{evals['labels']}/text_features_if_engaged.npy")
+    text_features_valence = generate_embeddings(tokenizer, model_clip, labels['valence'], f"{evals['labels']}/text_valence.npy")
     return text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence
 
+# Global variables for model and embeddings
+global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer, global_embeddings = None, None, None, None, None
 def main():
+    global global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer, global_embeddings
     try:
         config_path = './clip-video-encode/examples/successor_segmentation/config.ini'
-        # Load the model and tokenizer
-        model_clip, preprocess_train, preprocess_val, tokenizer = model(config_path)
-        # Generate and return embeddings
-        embeddings = get_embeddings(model_clip, tokenizer, config_path)
-        return model_clip, preprocess_train, preprocess_val, tokenizer, *embeddings
+        global_model_clip, global_preprocess_train, global_preprocess_val, global_tokenizer = model(config_path)
+        global_embeddings = get_embeddings(global_model_clip, global_tokenizer, config_path)
+        return 0  # Return status code 0 for success
     except Exception as e:
         print(f"Error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
+        return 1  # Return status code 1 for error
 if __name__ == "__main__":
     main()

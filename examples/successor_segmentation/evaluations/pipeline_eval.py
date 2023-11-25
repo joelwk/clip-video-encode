@@ -54,7 +54,7 @@ def main():
     except Exception as e:
         print(f"An exception occurred: {e}")
         return 1
-    return 0  # Add this line
+    return 0 
 
 if __name__ == "__main__":
-    sys.exit(main())  
+    sys.exit(main()) 

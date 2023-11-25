@@ -1,11 +1,22 @@
 from PIL import Image
-import torch
 import os
+import json
 import subprocess
 import argparse
-from prepare import read_config, generate_embeddings,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores, main
+import numpy as np
+import glob
+from evaluations.prepare import read_config, generate_embeddings,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs
 import cv2
-import srcs.load_data as ld
+import open_clip
+import torch
+
+from evaluations.prepare import (global_model_clip, global_preprocess_val, 
+                     global_embeddings, main as prepare_main)
+
+# Execute the main function from prepare.py to initialize the global variables
+prepare_main_status = prepare_main()
+if prepare_main_status != 0:
+    raise Exception("Failed to initialize model and embeddings from prepare.py")
 
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Define thresholds
@@ -23,18 +34,44 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Return True if the image meets the criteria for being "Good"
     return is_person_detected and single_face_detected and facing_forward and engaged
         
-
 def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=True):
+    params = read_config(section="evaluations")
+    # Form the paths to the embeddings
+    text_features_path = os.path.join(params['labels'], 'text_features.npy')
+    text_features_if_person_path = os.path.join(params['labels'], 'text_features_if_person.npy')
+    text_features_type_person_path = os.path.join(params['labels'], 'text_features_type_person.npy')
+    text_features_if_number_of_faces_path = os.path.join(params['labels'], 'text_features_number_of_faces.npy')
+    text_features_orientation_path = os.path.join(params['labels'], 'text_features_orientation.npy')
+    text_features_if_engaged_path = os.path.join(params['labels'], 'text_features_if_engaged.npy')
+    text_features_valence_path = os.path.join(params['labels'], 'text_valence.npy')
+
+    # Load embeddings
+    text_features = np.load(text_features_path)
+    text_features_if_person = np.load(text_features_if_person_path)
+    text_features_type_person = np.load(text_features_type_person_path)
+    text_features_if_number_of_faces = np.load(text_features_if_number_of_faces_path)
+    text_features_orientation = np.load(text_features_orientation_path)
+    text_features_if_engaged = np.load(text_features_if_engaged_path)
+    text_features_valence = np.load(text_features_valence_path)
+  
+
+    labels = read_config(section="labels")
+    
+    # Unpack embeddings
+    (text_features, text_features_if_person, text_features_type_person, 
+     text_features_if_number_of_faces, text_features_orientation, 
+     text_features_if_engaged, text_features_valence) = global_embeddings
+
     # Set up the output directory for processed images
     run_output_dir = os.path.join(output_dir, video_identifier)
     os.makedirs(run_output_dir, exist_ok=True)
 
     # Load and preprocess the image
     img = Image.open(image_path)
-    image_preprocessed = preprocess_val(img).unsqueeze(0)
+    image_preprocessed = global_preprocess_val(img).unsqueeze(0)
 
     # Encode the image using the CLIP model and normalize the features
-    image_features = model_clip.encode_image(image_preprocessed)
+    image_features = global_model_clip.encode_image(image_preprocessed)
     image_features = image_features.detach().numpy()
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
 
@@ -55,13 +92,13 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         if display_image:
             display_image_from_file(image_path)
             # Print top probabilities for different categories
-            print_top_n(is_person_probs[0], check_if_person)
-            print_top_n(type_person_probs[0], check_type_person)
-            print_top_n(face_probs[0], number_of_faces)
-            print_top_n(orientation_probs[0], orientation_labels)
-            print_top_n(engagement_probs[0], engagement_labels)
-            print_top_n(text_probs_emotions[0], emotions)
-            print_top_n(text_probs_valence[0], valence)
+            print_top_n(is_person_probs[0], labels['check_if_person'])
+            print_top_n(type_person_probs[0], labels['check_type_person'])
+            print_top_n(face_probs[0], labels['number_of_faces'])
+            print_top_n(orientation_probs[0], labels['orientation_labels'])
+            print_top_n(engagement_probs[0], labels['engagement_labels'])
+            print_top_n(text_probs_emotions[0], labels['emotions'])
+            print_top_n(text_probs_valence[0], labels['valence'])
 
         # Save the processed image
         filename = os.path.basename(image_path)
@@ -71,9 +108,9 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         img.save(save_path)
 
         # Sort and store the detection scores for faces, emotions, and valence
-        sorted_face_detection_scores = {k: v for k, v in sorted({check_if_person[i]: float(is_person_probs[0][i]) for i in range(len(check_if_person))}.items(), key=lambda item: item[1], reverse=True)}
-        sorted_emotions = {k: v for k, v in sorted({emotions[i]: float(text_probs_emotions[0][i]) for i in range(len(emotions))}.items(), key=lambda item: item[1], reverse=True)}
-        sorted_valence = {k: v for k, v in sorted({valence[i]: float(text_probs_valence[0][i]) for i in range(len(valence))}.items(), key=lambda item: item[1], reverse=True)}
+        sorted_face_detection_scores = {k: v for k, v in sorted({labels['check_if_person'][i]: float(is_person_probs[0][i]) for i in range(len(labels['check_if_person']))}.items(), key=lambda item: item[1], reverse=True)}
+        sorted_emotions = {k: v for k, v in sorted({labels['emotions'][i]: float(text_probs_emotions[0][i]) for i in range(len(labels['emotions']))}.items(), key=lambda item: item[1], reverse=True)}
+        sorted_valence = {k: v for k, v in sorted({labels['valence'][i]: float(text_probs_valence[0][i]) for i in range(len(labels['valence']))}.items(), key=lambda item: item[1], reverse=True)}
 
         # Convert NumPy boolean to Python boolean for JSON serialization
         face_detected_python_bool = bool(face_detected)
@@ -110,15 +147,14 @@ def get_all_video_ids(directory):
 
 def main():
     # Read configurations
-    params = ld.read_config(section="evaluations")
+    params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])
-
     for video in video_ids:
         try:
             keyframes = load_key_image_files(video, params)
             audios = load_key_audio_files(video, params)
             for keyframe in keyframes:
-                zeroshot_classifier(keyframe, str(video), params['keyframes'], display_image=True)
+                zeroshot_classifier(keyframe, str(video), params['outputs'], display_image=True)
 
             # Directories as defined in config.ini
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
