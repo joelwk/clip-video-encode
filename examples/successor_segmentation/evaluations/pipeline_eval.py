@@ -5,21 +5,16 @@ import subprocess
 import argparse
 from contextlib import contextmanager
 
-@contextmanager
-def change_directory(destination):
-    original_path = os.getcwd()
-    if not os.path.exists(destination):
-        os.makedirs(destination)
-    try:
-        os.chdir(destination)
-        yield
-    finally:
-        os.chdir(original_path)
 
-def install_requirements(directory):
-    req_file = os.path.join(directory, 'requirements.txt')
-    if os.path.exists(req_file):
-        subprocess.run(["pip", "install", "-r", req_file], check=True)
+def install_requirements():
+    try:
+        import open_clip
+    except ImportError:
+        print("Installing required packages and restarting...")
+        subprocess.run(["pip", "install", "yt-dlp"])
+        subprocess.run(["pip", "install", "scikit-learn==1.3.0"])
+        subprocess.run(["pip", "install", "pydub"])
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')
@@ -46,9 +41,7 @@ def main():
         config = {"local": generate_config("./evaluations")}
         selected_config = config[args.mode]
         create_directories(selected_config)
-        # Update the path to the requirements file
-        path = "./clip-video-encode/examples/successor_segmentation/evaluations/"
-        result = install_requirements(path)
+        install_requirements()
         if result != 0:
             return result
     except Exception as e:
