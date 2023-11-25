@@ -113,7 +113,7 @@ def model(config_path):
     tokenizer = open_clip.get_tokenizer(model_name)
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
-def get_embeddings(model_clip, tokenizer, config_path):
+def get_embeddings(tokenizer, model_clip, prompts, config_path):
     evals = read_config('evaluations', config_path)
     labels = read_config('labels', config_path)
     text_features = generate_embeddings(tokenizer, model_clip, labels['emotions'], f"{evals['labels']}/text_features.npy")
