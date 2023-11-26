@@ -29,7 +29,7 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
 def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=True):
     params = read_config(section="evaluations")
     model_clip, preprocess_train, preprocess_val, tokenizer = model()
-    text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence = get_embeddings(model_clip, tokenizer)
+    get_embeddings(model_clip, tokenizer)
 
     # Form the paths to the embeddings
     text_features_path = os.path.join(params['labels'], 'text_features.npy')

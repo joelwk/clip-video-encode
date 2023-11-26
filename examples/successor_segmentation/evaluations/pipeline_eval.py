@@ -15,7 +15,6 @@ def install_requirements():
         subprocess.run(["pip", "install", "scikit-learn==1.3.0"])
         subprocess.run(["pip", "install", "pydub"])
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')
     parser.add_argument('--mode', type=str, default='local', help='Execution mode: local or cloud')

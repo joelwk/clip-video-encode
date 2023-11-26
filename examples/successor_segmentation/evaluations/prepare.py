@@ -118,11 +118,19 @@ def model(config_path=config_path):
 def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations', config_path)
     labels = read_config('labels', config_path)
-    text_features = generate_embeddings(tokenizer, model_clip, labels['emotions'], f"{evals['labels']}/text_features.npy")
-    text_features_if_person = generate_embeddings(tokenizer, model_clip, labels['checkifperson'], f"{evals['labels']}/text_features_if_person.npy")
-    text_features_type_person = generate_embeddings(tokenizer, model_clip, labels['checktypeperson'], f"{evals['labels']}/text_features_type_person.npy")
-    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, labels['numberoffaces'], f"{evals['labels']}/text_features_number_of_faces.npy")
-    text_features_orientation = generate_embeddings(tokenizer, model_clip, labels['orientationlabels'], f"{evals['labels']}/text_features_orientation.npy")
-    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, labels['engagementlabels'], f"{evals['labels']}/text_features_if_engaged.npy")
-    text_features_valence = generate_embeddings(tokenizer, model_clip, labels['valence'], f"{evals['labels']}/text_valence.npy")
-    return text_features, text_features_if_person, text_features_type_person, text_features_if_number_of_faces, text_features_orientation, text_features_if_engaged, text_features_valence
+    
+    emotions = [emotion.strip() for emotion in labels['emotions'].replace('\\\n', '').split(',')]
+    check_if_person_list = [person.strip() for person in labels['checkifperson'].replace('\\\n', '').split(',')]
+    number_of_faces_list = [face.strip() for face in labels['numberoffaces'].replace('\\\n', '').split(',')]
+    engagement_labels_list = [label.strip() for label in labels['engagementlabels'].replace('\\\n', '').split(',')]
+    orientation_labels_list = [label.strip() for label in labels['orientationlabels'].replace('\\\n', '').split(',')]
+    check_type_person_list = [type_person.strip() for type_person in labels['checktypeperson'].replace('\\\n', '').split(',')]
+    valence_list = [val.strip() for val in labels['valence'].replace('\\\n', '').split(',')]
+
+    text_features = generate_embeddings(tokenizer, model_clip, emotions, f"{evals['labels']}/text_features.npy")
+    text_features_if_person = generate_embeddings(tokenizer, model_clip, check_if_person_list, f"{evals['labels']}/text_features_if_person.npy")
+    text_features_type_person = generate_embeddings(tokenizer, model_clip, check_type_person_list, f"{evals['labels']}/text_features_type_person.npy")
+    text_features_if_number_of_faces = generate_embeddings(tokenizer, model_clip, number_of_faces_list, f"{evals['labels']}/text_features_number_of_faces.npy")
+    text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels_list, f"{evals['labels']}/text_features_orientation.npy")
+    text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels_list, f"{evals['labels']}/text_features_if_engaged.npy")
+    text_features_valence = generate_embeddings(tokenizer, model_clip, valence_list, f"{evals['labels']}/text_valence.npy")
