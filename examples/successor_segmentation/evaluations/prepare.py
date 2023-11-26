@@ -36,10 +36,11 @@ def generate_embeddings(tokenizer, model_clip, prompts, file_name):
         text_features = np.load(file_name + '.npy')
     return text_features
 
-def save_dict_as_json(dictionary, file_name):
-    if not os.path.exists(file_name + '.json'):
-        with open(file_name + '.json', 'w') as file:
-            json.dump(dictionary, file, indent=4)
+def remove_duplicate_extension(filename):
+    parts = filename.split('.')
+    if len(parts) > 2 and parts[-1] == parts[-2]:
+        return '.'.join(parts[:-1])
+    return filename
 
 def display_image_from_file(image_path):
     img = Image.open(image_path)
@@ -50,21 +51,21 @@ def print_top_n(probs, labels):
     for i in top_n_indices:
         print(f"{labels[i]}: {probs[i]:.4f}")
 
-def remove_duplicate_extension(filename):
-    parts = filename.split('.')
-    if len(parts) > 2 and parts[-1] == parts[-2]:
-        return '.'.join(parts[:-1])
-    return filename
-
 def normalize_scores(scores):
-    mean = np.mean(scores, axis=1, keepdims=True)
-    std = np.std(scores, axis=1, keepdims=True)
+    mean = np.mean(scores, axis=1)
+    std = np.std(scores, axis=1)
     normalized_scores = (scores - mean) / std
     return normalized_scores
 
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=-1, keepdims=True)
+
+def sort_and_store_scores(probabilities, labels):
+    min_length = min(len(probabilities), len(labels))
+    scores = {labels[i]: float(probabilities[i]) for i in range(min_length)}
+    sorted_scores = dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
+    return sorted_scores
 
 def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
     # Ensure the output directory exists

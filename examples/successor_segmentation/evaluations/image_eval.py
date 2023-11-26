@@ -5,16 +5,10 @@ import subprocess
 import argparse
 import numpy as np
 import glob
-from evaluations.prepare import read_config,generate_embeddings,format_labels,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs,get_embeddings,model
+from evaluations.prepare import read_config,generate_embeddings,format_labels,tensor_to_array,remove_duplicate_extension,process_keyframe_audio_pairs,get_embeddings,model,display_image_from_file,print_top_n,normalize_scores,softmax,sort_and_store_scores
 import cv2
 import open_clip
 import torch
-
-def sort_and_store_scores(probabilities, labels):
-    min_length = min(len(probabilities), len(labels))
-    scores = {labels[i]: float(probabilities[i]) for i in range(min_length)}
-    sorted_scores = dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
-    return sorted_scores
     
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Define thresholds
@@ -31,8 +25,8 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     engaged = engagement_probs[0] > engagement_threshold or engagement_probs[1] > engagement_threshold
     # Return True if the image meets the criteria for being "Good"
     return is_person_detected and single_face_detected and facing_forward and engaged
-        
-def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=True):
+
+def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=False):
     params = read_config(section="evaluations")
     labels = read_config("labels")
     model_clip, preprocess_train, preprocess_val, tokenizer = model()
@@ -76,52 +70,52 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     orientation_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_orientation.T))
     engagement_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_engaged.T))
     text_probs_emotions = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features.T))
-    text_probs_valence = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_valence.T))
+    text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
 
     # Determine if the image is a close-up of a face
-    face_detected = is_good_image(is_person_probs[0],face_probs[0], orientation_probs[0], engagement_probs[0])
-    if face_detected:
-        if display_image:
-            display_image_from_file(image_path)
-            # Print top probabilities for different categories
-            print_top_n(is_person_probs[0], format_labels(labels, 'checkifperson'))
-            print_top_n(type_person_probs[0], format_labels(labels, 'checktypeperson'))
-            print_top_n(face_probs[0], format_labels(labels, 'numberoffaces'))
-            print_top_n(orientation_probs[0], format_labels(labels, 'orientationlabels'))
-            print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
-            print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
-            print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
+    face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
 
-        # Save the processed image
-        filename = os.path.basename(image_path)
-        filename_without_ext = filename.split('.')[0]
-        filename = remove_duplicate_extension(filename)
-        save_path = os.path.join(run_output_dir, filename)
-        img.save(save_path)
+    # Check if display_image is True, then proceed with displaying and printing
+    if face_detected and display_image:
+        display_image_from_file(image_path)
+        print_top_n(is_person_probs[0], format_labels(labels, 'checkifperson'))
+        print_top_n(type_person_probs[0], format_labels(labels, 'checktypeperson'))
+        print_top_n(face_probs[0], format_labels(labels, 'numberoffaces'))
+        print_top_n(orientation_probs[0], format_labels(labels, 'orientationlabels'))
+        print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
+        print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
+        print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
 
-        # Sort and store the detection scores for faces, emotions, and valence
-        sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
-        sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
-        sorted_valence = sort_and_store_scores(text_probs_valence[0], format_labels(labels, 'valence'))
+    # Proceed with saving regardless of the display_image flag
+    filename = os.path.basename(image_path)
+    filename_without_ext = filename.split('.')[0]
+    filename = remove_duplicate_extension(filename)
+    save_path = os.path.join(run_output_dir, filename)
+    img.save(save_path)
 
-        # Convert NumPy boolean to Python boolean for JSON serialization
-        face_detected_python_bool = bool(face_detected)
+    # Sort and store the detection scores for faces, emotions, and valence
+    sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
+    sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
+    sorted_valence = sort_and_store_scores(text_probs_valence[0], format_labels(labels, 'valence'))
 
-        # Prepare and save JSON data with classification results
-        json_data = {
-            "image_path": filename,
-            "face_detected": face_detected_python_bool,
-            "face_detection_scores": sorted_face_detection_scores,
-            "emotions": sorted_emotions,
-            "valence": sorted_valence
+    # Convert NumPy boolean to Python boolean for JSON serialization
+    face_detected_python_bool = bool(face_detected)
+
+    # Prepare and save JSON data with classification results
+    json_data = {
+        "image_path": filename,
+        "face_detected": face_detected_python_bool,
+        "face_detection_scores": sorted_face_detection_scores,
+        "emotions": sorted_emotions,
+        "valence": sorted_valence
         }
-        json_filename = filename_without_ext + '.json'
-        with open(os.path.join(run_output_dir, json_filename), 'w') as json_file:
-            json.dump(json_data, json_file, indent=4)
-
-        # Save the image features as .npy files for further analysis
-        npy_filename_base = filename_without_ext
-        np.save(os.path.join(run_output_dir, npy_filename_base + '_image_features.npy'), image_features)
+    json_filename = filename_without_ext + '.json'
+    with open(os.path.join(run_output_dir, json_filename), 'w') as json_file:
+        json.dump(json_data, json_file, indent=4)
+        
+    # Save the image features as .npy files for further analysis
+    npy_filename_base = filename_without_ext
+    np.save(os.path.join(run_output_dir, npy_filename_base + '_image_features.npy'), image_features)
 
 def load_key_image_files(vid, params):
     # Returns an iterator over sorted keyframe image files for a given video ID
@@ -146,7 +140,7 @@ def main():
             keyframes = load_key_image_files(video, params)
             audios = load_key_audio_files(video, params)
             for keyframe in keyframes:
-                zeroshot_classifier(keyframe, str(video), params['outputs'], display_image=True)
+                zeroshot_classifier(keyframe, str(video), params['outputs'], display_image=False)
 
             # Directories as defined in config.ini
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
