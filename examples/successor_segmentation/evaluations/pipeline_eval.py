@@ -23,7 +23,7 @@ def parse_args():
 def generate_config(base_directory):
     return {
         "evaluations": base_directory,
-        "labels": f"{base_directory}/labels",
+        "labels": f"{base_directory}/embeddings",
         "image_audio_pairs": f"{base_directory}/image_audio_pairs",
         "paired_evaluations": f"{base_directory}/paired_evaluations",
         "image_evaluations": f"{base_directory}/image_evaluations",

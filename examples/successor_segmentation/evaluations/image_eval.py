@@ -5,11 +5,17 @@ import subprocess
 import argparse
 import numpy as np
 import glob
-from evaluations.prepare import read_config, generate_embeddings,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs, get_embeddings, model
+from evaluations.prepare import read_config,generate_embeddings,format_labels,tensor_to_array,display_image_from_file,remove_duplicate_extension,print_top_n,softmax,normalize_scores,process_keyframe_audio_pairs,get_embeddings,model
 import cv2
 import open_clip
 import torch
 
+def sort_and_store_scores(probabilities, labels):
+    min_length = min(len(probabilities), len(labels))
+    scores = {labels[i]: float(probabilities[i]) for i in range(min_length)}
+    sorted_scores = dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
+    return sorted_scores
+    
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Define thresholds
     is_person_threshold = 0.95  # High probability of the subject being a person
@@ -28,17 +34,18 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
         
 def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=True):
     params = read_config(section="evaluations")
+    labels = read_config("labels")
     model_clip, preprocess_train, preprocess_val, tokenizer = model()
     get_embeddings(model_clip, tokenizer)
 
     # Form the paths to the embeddings
-    text_features_path = os.path.join(params['labels'], 'text_features.npy')
-    text_features_if_person_path = os.path.join(params['labels'], 'text_features_if_person.npy')
-    text_features_type_person_path = os.path.join(params['labels'], 'text_features_type_person.npy')
-    text_features_if_number_of_faces_path = os.path.join(params['labels'], 'text_features_number_of_faces.npy')
-    text_features_orientation_path = os.path.join(params['labels'], 'text_features_orientation.npy')
-    text_features_if_engaged_path = os.path.join(params['labels'], 'text_features_if_engaged.npy')
-    text_features_valence_path = os.path.join(params['labels'], 'text_valence.npy')
+    text_features_path = os.path.join(params['embeddings'], 'text_features.npy')
+    text_features_if_person_path = os.path.join(params['embeddings'], 'text_features_if_person.npy')
+    text_features_type_person_path = os.path.join(params['embeddings'], 'text_features_type_person.npy')
+    text_features_if_number_of_faces_path = os.path.join(params['embeddings'], 'text_features_number_of_faces.npy')
+    text_features_orientation_path = os.path.join(params['embeddings'], 'text_features_orientation.npy')
+    text_features_if_engaged_path = os.path.join(params['embeddings'], 'text_features_if_engaged.npy')
+    text_features_valence_path = os.path.join(params['embeddings'], 'text_valence.npy')
 
     # Load embeddings
     text_features = np.load(text_features_path)
@@ -48,9 +55,6 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     text_features_orientation = np.load(text_features_orientation_path)
     text_features_if_engaged = np.load(text_features_if_engaged_path)
     text_features_valence = np.load(text_features_valence_path)
-  
-
-    labels = read_config(section="labels")
     
     # Set up the output directory for processed images
     run_output_dir = os.path.join(output_dir, video_identifier)
@@ -66,29 +70,27 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
 
     # Calculate probabilities for different categories using softmax
-    is_person_probs = softmax(100.0 * normalize_scores(image_features @ text_features_if_person.T))
-    type_person_probs = softmax(100.0 * normalize_scores(image_features @ text_features_type_person.T))
-    face_probs = softmax(100.0 * normalize_scores(image_features @ text_features_if_number_of_faces.T))
-    orientation_probs = softmax(100.0 * normalize_scores(image_features @ text_features_orientation.T))
-    engagement_probs = softmax(100.0 * normalize_scores(image_features @ text_features_if_engaged.T))
-    text_probs_emotions = softmax(100.0 * normalize_scores(image_features @ text_features.T))
-    text_probs_valence = softmax(100.0 * normalize_scores(image_features @ text_features_valence.T))
+    is_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_person.T))
+    type_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_type_person.T))
+    face_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_number_of_faces.T))
+    orientation_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_orientation.T))
+    engagement_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_engaged.T))
+    text_probs_emotions = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features.T))
+    text_probs_valence = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_valence.T))
 
     # Determine if the image is a close-up of a face
     face_detected = is_good_image(is_person_probs[0],face_probs[0], orientation_probs[0], engagement_probs[0])
-    # Process the image if a face is detected
     if face_detected:
-        # Optionally display the image
         if display_image:
             display_image_from_file(image_path)
             # Print top probabilities for different categories
-            print_top_n(is_person_probs[0], labels['check_if_person'])
-            print_top_n(type_person_probs[0], labels['check_type_person'])
-            print_top_n(face_probs[0], labels['number_of_faces'])
-            print_top_n(orientation_probs[0], labels['orientation_labels'])
-            print_top_n(engagement_probs[0], labels['engagement_labels'])
-            print_top_n(text_probs_emotions[0], labels['emotions'])
-            print_top_n(text_probs_valence[0], labels['valence'])
+            print_top_n(is_person_probs[0], format_labels(labels, 'checkifperson'))
+            print_top_n(type_person_probs[0], format_labels(labels, 'checktypeperson'))
+            print_top_n(face_probs[0], format_labels(labels, 'numberoffaces'))
+            print_top_n(orientation_probs[0], format_labels(labels, 'orientationlabels'))
+            print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
+            print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
+            print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
 
         # Save the processed image
         filename = os.path.basename(image_path)
@@ -98,9 +100,9 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         img.save(save_path)
 
         # Sort and store the detection scores for faces, emotions, and valence
-        sorted_face_detection_scores = {k: v for k, v in sorted({labels['check_if_person'][i]: float(is_person_probs[0][i]) for i in range(len(labels['check_if_person']))}.items(), key=lambda item: item[1], reverse=True)}
-        sorted_emotions = {k: v for k, v in sorted({labels['emotions'][i]: float(text_probs_emotions[0][i]) for i in range(len(labels['emotions']))}.items(), key=lambda item: item[1], reverse=True)}
-        sorted_valence = {k: v for k, v in sorted({labels['valence'][i]: float(text_probs_valence[0][i]) for i in range(len(labels['valence']))}.items(), key=lambda item: item[1], reverse=True)}
+        sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
+        sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
+        sorted_valence = sort_and_store_scores(text_probs_valence[0], format_labels(labels, 'valence'))
 
         # Convert NumPy boolean to Python boolean for JSON serialization
         face_detected_python_bool = bool(face_detected)
