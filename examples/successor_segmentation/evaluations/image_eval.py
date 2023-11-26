@@ -140,8 +140,7 @@ def main():
             keyframes = load_key_image_files(video, params)
             audios = load_key_audio_files(video, params)
             for keyframe in keyframes:
-                zeroshot_classifier(keyframe, str(video), params['outputs'], display_image=False)
-
+                zeroshot_classifier(keyframe, str(video), os.path.join(params['outputs'], "image_evaluations"), display_image=False)
             # Directories as defined in config.ini
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
             output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
