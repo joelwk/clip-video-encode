@@ -92,7 +92,7 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
             success, frame = vid_cap.read()
             if not success:
                 break
-            timestamp = (total_duration / len(embedding_values)) * emb_idx
+            timestamp = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
             frame_embedding_pairs.append((frame, embedding))
             timestamps.append(timestamp)
         vid_cap.release()

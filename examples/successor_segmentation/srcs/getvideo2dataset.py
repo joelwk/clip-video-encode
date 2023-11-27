@@ -21,7 +21,6 @@ config = {
     "local": generate_config("./datasets")}
 selected_config = config[args.mode]
 
-
 def prepare_dataset_requirements(directory, external_parquet_path=None):
     if external_parquet_path:
         # If an external Parquet file is provided, copy it to the directory
@@ -31,7 +30,6 @@ def prepare_dataset_requirements(directory, external_parquet_path=None):
         dataset_requirements = {
             "data": [
                 {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"},
-                {"url": "www.youtube.com/watch?v=ND92YNQv0TU", "caption": "Macaque Monkeys at War"}
             ]
         }
         os.makedirs(directory, exist_ok=True)
