@@ -81,43 +81,48 @@ class SegmentSuccessorAnalyzer:
         if not new_segments:
             print("No new segments found. Exiting save_keyframes.")
             return
-        saved_keyframes = set()
+
         num_frames = len(frame_embedding_pairs)
         num_cols = 4
         num_rows = int(np.ceil(num_frames / num_cols))
         if num_rows <= 0 or num_cols <= 0:
             print("Invalid grid dimensions. Skipping grid plotting.")
             return
+
         fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows))
         if num_frames == 1:
             axes = np.array([[axes]])
         flat_axes = axes.flatten()
+
         keyframe_data = {}
         segment_counter = 0
-        individual_keyframe_counter = 0
-        segment_start_idx = 0
         for i, ax in enumerate(flat_axes[:num_frames]):
             frame, _ = frame_embedding_pairs[i]
             if is_clear_image(frame):  # Check if the image is too dark or too light
                 ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 if i - 1 in new_segments:
-                    keyframe_data[i] = {
-                        'index': i,
-                        'time_frame': timestamps[i]
-                    }
-                    segment_start_idx = i
                     segment_counter += 1
+
                 annotate_plot(ax, idx=i, successor_sim=successor_distance, distances=distances,
-                            global_frame_start_idx=0, window_idx=i,
-                            segment_label=f"Segment {segment_counter}", timestamp=timestamps[i])
-                individual_keyframe_path = os.path.join(save_dir, f'individual_keyframe_{individual_keyframe_counter}.png')
-                individual_keyframe_counter += 1
+                              global_frame_start_idx=0, window_idx=i,
+                              segment_label=f"Segment {segment_counter}", timestamp=timestamps[i])
+
+                individual_keyframe_filename = f'keyframe_{i}_timestamp_{timestamps[i]:.2f}.png'
+                individual_keyframe_path = os.path.join(save_dir, individual_keyframe_filename)
                 cv2.imwrite(individual_keyframe_path, frame)
+
+                # Add filename to keyframe_data
+                keyframe_data[i] = {
+                    'index': i,
+                    'time_frame': timestamps[i],
+                    'filename': individual_keyframe_filename  # Including the filename in keyframe_data
+                }
         for i in range(num_frames, len(flat_axes)):
             flat_axes[i].axis('off')
         plt.tight_layout()  # Adjust the layout to reduce white space
         plt_path = os.path.join(save_dir, 'keyframes_grid.png')
         plt.savefig(plt_path)
+
         json_path = os.path.join(save_dir, 'keyframe_data.json')
         with open(json_path, 'w') as f:
             json.dump(keyframe_data, f)
@@ -162,7 +167,8 @@ def run_analysis(analyzer_class, specific_videos=None):
                 logging.warning(f"Skipping video {video} due to failure in loading arrays.")
                 continue
             else:
-                raise  # re-raise the caught exception if it's a different one
+                raise
+
         video_files = ld.load_video_files(video, params)
         if not video_files:
             print(f"No video files found for video: {video}. Skipping analysis.")

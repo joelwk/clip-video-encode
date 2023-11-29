@@ -30,6 +30,7 @@ def prepare_dataset_requirements(directory, external_parquet_path=None):
         dataset_requirements = {
             "data": [
                 {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"},
+                {"url": "www.youtube.com/watch?v=pYbbyuqv86Q", "caption": "Hate Speech is a marketing campaign for censorship"},
             ]
         }
         os.makedirs(directory, exist_ok=True)

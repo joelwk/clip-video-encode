@@ -95,7 +95,7 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
                 transcript = ' '.join(chunk.get('text', '') for chunk in chunks)
                 segment_info = {
                     'segment_idx': idx,
-                    'timestamp': [start_time_ms / 1000, end_time_ms / 1000],  
+                    'timestamp': [start_time_ms / 1000, end_time_ms / 1000],  # Convert timestamps back to seconds
                     'text': transcript
                 }
                 output_aligned_final.append(segment_info)
@@ -128,6 +128,6 @@ def process_audio_files():
                     convert_audio_files(initial_input_directory, individual_output_dir)
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
-                    audio_pipeline(audio_path, individual_output_dir, keyframe_data, 5)
+                    audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, 5)
     except Exception as e:
         print(f"An exception occurred: {e}")
