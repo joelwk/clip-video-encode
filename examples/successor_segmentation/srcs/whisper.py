@@ -3,7 +3,11 @@ import sys
 import json
 import subprocess
 import glob
+import warnings
 from srcs.segment_processing import read_thresholds_config
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
 def read_keyframe_data(keyframe_json_path):
     with open(keyframe_json_path, 'r') as file:
         return json.load(file)
