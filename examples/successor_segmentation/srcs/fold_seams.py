@@ -122,8 +122,10 @@ def main(segment_video, segment_audio, specific_videos):
         keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
 
         if segment_video:
+            clip_output = f"./output/keyframe_clip/{vid}"
+            os.makedirs(clip_output, exist_ok=True)
             # Segment video using keyframes and embeddings
-            segment_video_using_keyframes_and_embeddings(key_video_files[0], params['video_output_dir'], keyframe_timestamps, thresholds)
+            segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps, thresholds)
 
         if segment_audio:
             audio_clip_output = f"./output/keyframe_audio_clip/{vid}"

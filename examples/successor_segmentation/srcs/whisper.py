@@ -4,13 +4,13 @@ import json
 import subprocess
 import glob
 import warnings
-from srcs.segment_processing import read_thresholds_config
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 def read_keyframe_data(keyframe_json_path):
     with open(keyframe_json_path, 'r') as file:
         return json.load(file)
+        
 def install_requirements():
     try:
         import torch
@@ -112,13 +112,34 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
     except Exception as e:
         print(f"Error in audio_pipeline: {e}")
 
+def full_audio_transcription_pipeline(audio_path, output_dir):
+    try:
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        pipe = pipeline("automatic-speech-recognition",
+                        "openai/whisper-large-v2",
+                        torch_dtype=torch.float16,
+                        device=device)
+        # Process the entire audio file using Whisper
+        outputs = pipe(audio_path,chunk_length_s=30,batch_size=30, return_timestamps=True)
+        chunks = outputs.get("chunks", [])
+        if not chunks:
+            print(f"No chunks returned by the pipeline for {audio_path}.")
+            return
+        transcript = ' '.join(chunk.get('text', '') for chunk in chunks)
+        full_transcript_path = os.path.join(output_dir, 'full_transcript.json')
+        with open(full_transcript_path, 'w') as f:
+            json.dump({'transcript': transcript}, f)
+        print(f"Full transcript created: {full_transcript_path}")
+    except Exception as e:
+        print(f"Error in full_audio_transcription_pipeline: {e}")
+        
 def process_audio_files():
     try:
-        thresholds = read_thresholds_config()
         base_path = './completedatasets/'
         for n in os.listdir(base_path):
             initial_input_directory = os.path.join(base_path, n, 'originalvideos')
             audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
+            full_audio_clip_output_dir = os.path.join(audio_clip_output_dir, 'full_whisper_segments')
             keyframe_dir = os.path.join(base_path, n, 'keyframes')
             keyframe_json_path = os.path.join(keyframe_dir, 'keyframe_data.json')
             keyframe_data = read_keyframe_data(keyframe_json_path)
@@ -133,5 +154,12 @@ def process_audio_files():
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
                     audio_pipeline(audio_path, individual_output_dir, keyframe_data, 5)
+
+            process_full_audio = False
+            if process_full_audio:
+                if not os.path.exists(full_audio_clip_output_dir):
+                    os.makedirs(full_audio_clip_output_dir)
+                # Process the entire audio file for transcription
+                full_audio_transcription_pipeline(audio_path, full_audio_clip_output_dir)
     except Exception as e:
         print(f"An exception occurred: {e}")
