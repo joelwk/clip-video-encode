@@ -2,6 +2,10 @@ import os
 import json
 import shutil
 from pydub import AudioSegment
+import os
+import json
+import shutil
+from pydub import AudioSegment
 
 def convert_audio_files(output_format="mp3"):
     base_path = './completedatasets/'
@@ -67,23 +71,17 @@ def convert_audio_files(output_format="mp3"):
 def move_and_remove_subdirectory(audio_clip_output_dir):
     for subdir in os.listdir(audio_clip_output_dir):
         subdir_path = os.path.join(audio_clip_output_dir, subdir)
-        # Check if the subdir is an integer-named directory
-        if subdir.isdigit() and os.path.isdir(subdir_path):
+        if subdir.isdigit() and os.path.isdir(subdir_path) or subdir == 'full_whisper_segments' and os.path.isdir(subdir_path):
             try:
                 shutil.rmtree(subdir_path)
-                print(f"Removed subdirectory {subdir_path}")
             except Exception as e:
                 print(f"Error removing {subdir_path}: {e}")
-
 def main():
-    processed_dirs = convert_audio_files()  
-    if processed_dirs:
-        for dir in processed_dirs:
-            move_and_remove_subdirectory(dir)
-    else:
-        print("No directories were processed")
+    base_path = './completedatasets/'
+    for n in os.listdir(base_path):
+        audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
+        convert_audio_files()  
+        move_and_remove_subdirectory(audio_clip_output_dir)
 
 if __name__ == '__main__':
     main()
-
-    
