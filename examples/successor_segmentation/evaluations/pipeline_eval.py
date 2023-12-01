@@ -5,15 +5,20 @@ import subprocess
 import argparse
 from contextlib import contextmanager
 
-
 def install_requirements():
     try:
+        import laion_clap
         import open_clip
+        from demucs.separate import separator
+
     except ImportError:
         print("Installing required packages and restarting...")
         subprocess.run(["pip", "install", "yt-dlp"])
+        subprocess.run(["pip", "install", "laion_clap"])
         subprocess.run(["pip", "install", "scikit-learn==1.3.0"])
         subprocess.run(["pip", "install", "pydub"])
+        subprocess.run(["pip", "install", "demucs"])
+        
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')

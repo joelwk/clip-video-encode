@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import re
+import glob
 
 import numpy as np
 import open_clip
@@ -21,6 +22,17 @@ def read_config(section, config_path=config_path):
     if section not in config.sections():
         raise KeyError(f"Section {section} not found in configuration file.")
     return {key: config[section][key] for key in config[section]}
+    
+def load_key_image_files(vid, params):
+    pattern = os.path.join(params['completedatasets'], str(vid), "keyframes", "*.png")
+    return iter(sorted(glob.glob(pattern)))
+
+def load_key_audio_files(vid, params):
+    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.flac")
+    return iter(sorted(glob.glob(pattern)))
+
+def get_all_video_ids(directory):
+    return iter([int(os.path.basename(f)) for f in glob.glob(os.path.join(directory, '*'))])
 
 def tensor_to_array(tensor):
     return tensor.cpu().numpy()
@@ -77,9 +89,9 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
         match = re.search(r'keyframe_(\d+)_', keyframe_filename)
         if match:
             segment_idx = int(match.group(1))
-            audio_filename = f"segment_{segment_idx}__keyframe.flac.flac"
+            audio_filename = f"segment_{segment_idx}__keyframe.flac"
             audio_path = os.path.join(audio_dir, audio_filename)
-            text_filename = f"video_1_keyframe_audio_clip_{segment_idx}.txt.txt"
+            text_filename = f"video_1_keyframe_audio_clip_{segment_idx}.txt"
             text_path = os.path.join(audio_dir, text_filename)
             if os.path.isfile(audio_path):
                 output_audio_path = os.path.join(output_dir, remove_duplicate_extension(audio_filename))
@@ -95,13 +107,44 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
 def format_labels(labels, key):
     return [label.strip() for label in labels[key].replace('\\\n', '').split(',')]
 
-def model(config_path=config_path):
+def model_clip(config_path=config_path):
     model_config = read_config('evaluations')
-    model_name = model_config.get('model')
+    # Load CLIP model and tokenizer
+    model_name = model_config['model_clip']
     model_clip, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(model_name)
     tokenizer = open_clip.get_tokenizer(model_name)
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
+def model_clap():
+    model_config = read_config('evaluations')
+    model_name = model_config['model_clap']
+    # Load CLAP model and checkpoint
+    if not os.path.isfile(model_name['model_clap_checkpoint'].split('/')[-1]):
+        subprocess.run(['wget', model_name['model_clap_checkpoint']])
+    model_clap = laion_clap.CLAP_Module(enable_fusion=False, amodel=model_name['model_clap'])
+    # Load checkpoint
+    checkpoint = torch.load(model_name['model_clap_checkpoint'].split('/')[-1])
+    model_clap.load_state_dict(checkpoint, strict=False)
+    return model_clap
+
+def prepare_audio_labels():
+    with open('clap-audioset-probe/clap-probe.pkl', 'rb') as f:
+        multioutput_model = pickle.load(f)
+    dfmetrics = pd.read_csv("clap-audioset-probe/clap-probe.csv")
+    dfmetrics = dfmetrics.sort_values("model_order")
+    model_order_to_group_name = pd.Series(dfmetrics.group_name.values, index=dfmetrics.model_order).to_dict()
+    return multioutput_model, model_order_to_group_name, dfmetrics
+
+def get_audio_embeddings(audio_path, model_clap):
+    audio_files = sorted([f for f in glob.glob(audio_path + '/**/*.mp3', recursive=True) if re.search(r'segment_\d+__keyframe(_vocals)?\.mp3$', f)])
+    embeddings = []
+    for input_file in audio_files:
+        print(f"Processing {input_file}")
+        audio_embed = np.squeeze(model_clap.get_audio_embedding_from_filelist([input_file], use_tensor=False))
+        normalized_embed = normalize_scores(audio_embed.reshape(1, -1))
+        embeddings.append(audio_embed)
+    return audio_files, np.vstack(embeddings)
+    
 def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations')
     labels = read_config('labels')

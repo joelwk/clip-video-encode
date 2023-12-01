@@ -5,7 +5,12 @@ import subprocess
 import argparse
 import numpy as np
 import glob
-from evaluations.prepare import read_config,generate_embeddings,format_labels,tensor_to_array,remove_duplicate_extension,process_keyframe_audio_pairs,get_embeddings,model,display_image_from_file,print_top_n,normalize_scores,softmax,sort_and_store_scores
+from evaluations.prepare import (
+    read_config, generate_embeddings, format_labels, tensor_to_array, 
+    remove_duplicate_extension, process_keyframe_audio_pairs, get_embeddings, model_clip, 
+    display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,load_key_image_files, load_key_audio_files, get_all_video_ids
+)
+
 import cv2
 import open_clip
 import torch
@@ -29,8 +34,8 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
 def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=False):
     params = read_config(section="evaluations")
     labels = read_config("labels")
-    model_clip, preprocess_train, preprocess_val, tokenizer = model()
-    get_embeddings(model_clip, tokenizer)
+    model, preprocess_train, preprocess_val, tokenizer = model_clip()
+    get_embeddings(model, tokenizer)
 
     # Form the paths to the embeddings
     text_features_path = os.path.join(params['embeddings'], 'text_features.npy')
@@ -59,7 +64,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     image_preprocessed = preprocess_val(img).unsqueeze(0)
 
     # Encode the image using the CLIP model and normalize the features
-    image_features = model_clip.encode_image(image_preprocessed)
+    image_features = model.encode_image(image_preprocessed)
     image_features = image_features.detach().numpy()
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
 
@@ -116,20 +121,6 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     # Save the image features as .npy files for further analysis
     npy_filename_base = filename_without_ext
     np.save(os.path.join(run_output_dir, npy_filename_base + '_image_features.npy'), image_features)
-
-def load_key_image_files(vid, params):
-    # Returns an iterator over sorted keyframe image files for a given video ID
-    pattern = os.path.join(params['completedatasets'], str(vid), "keyframes", "*.png")
-    return iter(sorted(glob.glob(pattern)))
-
-def load_key_audio_files(vid, params):
-    # Returns an iterator over sorted keyframe audio files for a given video ID
-    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.flac")
-    return iter(sorted(glob.glob(pattern)))
-
-def get_all_video_ids(directory):
-    # Returns an iterator over video IDs in the given directory
-    return iter([int(os.path.basename(f)) for f in glob.glob(os.path.join(directory, '*'))])
 
 def main():
     # Read configurations
