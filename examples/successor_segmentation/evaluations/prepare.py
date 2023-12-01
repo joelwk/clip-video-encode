@@ -3,6 +3,7 @@ import shutil
 import sys
 import os
 import json
+import re
 
 import numpy as np
 import open_clip
