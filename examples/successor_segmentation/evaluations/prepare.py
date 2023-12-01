@@ -71,15 +71,14 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
     # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
     keyframe_filenames = [f for f in os.listdir(faces_dir) if f.endswith('.png')]
     for keyframe_filename in keyframe_filenames:
-        digit_str = ''.join(filter(str.isdigit, keyframe_filename))
-        if digit_str:
-            segment_idx = int(digit_str)
-            audio_filename = f"keyframe_audio_clip_{segment_idx}.mp3"
+        match = re.search(r'keyframe_(\d+)_', keyframe_filename)
+        if match:
+            segment_idx = int(match.group(1))
+            audio_filename = f"segment_{segment_idx}__keyframe.flac.flac"
             audio_path = os.path.join(audio_dir, audio_filename)
-            text_filename = f"keyframe_audio_clip_{segment_idx}.txt"
+            text_filename = f"video_1_keyframe_audio_clip_{segment_idx}.txt.txt"
             text_path = os.path.join(audio_dir, text_filename)
             if os.path.isfile(audio_path):
                 output_audio_path = os.path.join(output_dir, remove_duplicate_extension(audio_filename))

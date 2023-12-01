@@ -175,7 +175,8 @@ def run_analysis(analyzer_class, specific_videos=None):
             continue
         key_video_files = ld.load_key_video_files(video, params)
         total_duration = ld.get_video_duration(video_files)
-        save_dir = f"./output/keyframes/{video}"
+        keyframe_outputs = params['keyframe_outputs']
+        save_dir = f"{keyframe_outputs}/{video}"
         os.makedirs(save_dir, exist_ok=True)
         analyzer = analyzer_class(total_duration, embedding_values, thresholds)
         analyzer.run(video_files, thresholds, key_video_files, save_dir)

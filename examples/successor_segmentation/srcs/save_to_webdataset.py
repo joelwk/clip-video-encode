@@ -5,6 +5,7 @@ import numpy as np
 import json
 from io import BytesIO
 import ast
+from srcs.load_data import read_config
 
 def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
     # List all folders in the root directory and sort them
@@ -64,8 +65,10 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
             sink.write(sample)
 
 def main():
-    root_folder = './completedatasets'
-    output_folder = '.'
+    directories = read_config(section="directory")
+    evaluations = read_config(section="evaluations")
+    root_folder = evaluations['completedatasets']
+    output_folder = directories['video_wds_output']
     os.makedirs(output_folder, exist_ok=True)
     package_datasets_to_webdataset(root_folder, output_folder)
 

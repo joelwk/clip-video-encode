@@ -1,18 +1,20 @@
 import os
 import glob
 import shutil
+from srcs.load_data import read_config
 
-def move_and_group_files():
+def move_and_group_files(directories):
     # Define source directories for various categories of files
     src_dirs = {
-        'originalvideos': './datasets/originalvideos',
-        'keyframevideos': './datasets/keyframes',
-        'keyframeembeddings': './datasets/keyframeembeddings',
-        'keyframe_clips': './output/keyframe_clip',
-        'keyframe_audio_clips': './output/keyframe_audio_clip',
-        'keyframes': './output/keyframes',
-        'keyframe_clip_embeddings': './keyframe_clip_embeddings/'
+        'originalvideos': directories['originalframes'],
+        'keyframevideos': directories['keyframes'],
+        'keyframeembeddings': directories['embeddings'],
+        'keyframe_clips': directories['keyframe_clips_output'],
+        'keyframe_audio_clips': directories['keyframe_audio_clip_output'],
+        'keyframes': directories['keyframe_outputs'],
+        'keyframe_clip_embeddings': directories['keyframe_clip_embeddings_outputs'],
     }
+
     # Define the destination directory where files will be moved to
     dest_dir = './completedatasets'
     os.makedirs(dest_dir, exist_ok=True)
@@ -59,7 +61,8 @@ def cleanup_unwanted_dirs(directory, unwanted_dirs):
             print(f"Removed {path_to_remove}")
 
 def main():
-    move_and_group_files()
+    directories = read_config(section="directory")
+    move_and_group_files(directories)
     cleanup_unwanted_dirs('./completedatasets', ['00000_stats', '00000'])
 
 if __name__ == "__main__":

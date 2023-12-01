@@ -124,7 +124,7 @@ def load_key_image_files(vid, params):
 
 def load_key_audio_files(vid, params):
     # Returns an iterator over sorted keyframe audio files for a given video ID
-    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.mp3")
+    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.flac")
     return iter(sorted(glob.glob(pattern)))
 
 def get_all_video_ids(directory):

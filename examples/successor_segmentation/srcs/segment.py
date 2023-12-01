@@ -8,6 +8,8 @@ from srcs.whisper import process_audio_files
 from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
 from srcs.fold_seams import main as fold_seams_main
 from srcs.convert_types import main as convert_types_main
+import configparser
+from srcs.load_data import read_config, string_to_bool
 
 ''' 
 segment_video - segment video by time stamps to output individual mp4's
@@ -17,24 +19,27 @@ specific_videos - indicate specific video with [1,2,3] for all 3 videos, or [1] 
 
 '''
 
-def run_all_scripts(segment_video=False, segment_audio=True, compute_embeddings=False, specific_videos=None):
+def run_all_scripts(config):
+    segment_video = string_to_bool(config.get("segment_video", "False"))
+    segment_audio = string_to_bool(config.get("segment_audio", "True"))
+    compute_embeddings = string_to_bool(config.get("compute_embeddings", "False"))
+    specific_videos = config.get("specific_videos", None)
 
-    # Run the main function from rename_and_move.py
     rename_and_move_main()
-    
-    # Run the main function from successor_segmentation and fold_seams
     run_analysis(SegmentSuccessorAnalyzer)
-
     fold_seams_main(segment_video, segment_audio, specific_videos)
+
     if compute_embeddings:
         segment_averaging_main()
 
-    # Run the main function from move_and_group.py
     move_and_group_main()
     process_audio_files()
     convert_types_main()
-    # Run the main function from save_to_webdataset.py
     save_to_webdataset_main()
 
+def initialize_and_run():
+    config = read_config(section="config_params")
+    run_all_scripts(config)
+
 if __name__ == "__main__":
-    run_all_scripts()
+    initialize_and_run()

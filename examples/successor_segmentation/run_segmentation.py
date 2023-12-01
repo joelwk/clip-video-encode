@@ -18,7 +18,7 @@ def run():
         ("main", "srcs.pipeline"),
         ("main", "srcs.getvideo2dataset"),
         ("main", "srcs.clip_encode"),
-        ("run_all_scripts", "srcs.segment")  
+        ("initialize_and_run", "srcs.segment")  
     ]
     
     for idx, (script_func_name, script_path) in enumerate(scripts):

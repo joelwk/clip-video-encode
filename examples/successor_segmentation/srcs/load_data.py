@@ -17,6 +17,9 @@ def read_config(section="directory", config_path='./clip-video-encode/examples/s
         print(f"Section {section} not found in configuration.")
         raise KeyError(section)
     return {key: config[section][key] for key in config[section]}
+    
+def string_to_bool(string_value):
+    return string_value.lower() in ['true', '1', 't', 'y', 'yes', 'on']
 
 def load_video_files(vid, params):
     return sorted(glob.glob(f"{params['originalframes']}/{vid}.mp4"))
