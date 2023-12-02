@@ -2,16 +2,40 @@ import configparser
 import shutil
 import sys
 import os
+import pickle
 import json
 import re
 import glob
 import subprocess
+import traceback
+import re
 
+from evaluations.pipeline_eval import modify_hook_file
+
+import pandas as pd
 import numpy as np
-import open_clip
-import tensorflow as tf
-import torch
-from PIL import Image
+try:
+    import laion_clap
+    import open_clip
+    import tensorflow as tf
+    import torch
+    from PIL import Image
+except ImportError as e:
+    # Extract the traceback
+    tb = traceback.format_exc()
+    # Use regex to find the file path of hook.py
+    match = re.search(r'File "(.*?/laion_clap/hook\.py)", line \d+, in', tb)
+    if match:
+        hook_file_path = match.group(1)
+        print(f"Path to hook.py: {hook_file_path}")
+    else:
+        print("Could not find the path to hook.py in the ImportError traceback.")
+        modify_hook_file(hook_file_path)
+        import laion_clap
+        import open_clip
+        import tensorflow as tf
+        import torch
+        from PIL import Image
 
 config_path='./clip-video-encode/examples/successor_segmentation/config.ini'
 
@@ -123,18 +147,24 @@ def model_clap():
         subprocess.run(['wget', model_config['model_clap_checkpoint']])
     model_clap = laion_clap.CLAP_Module(enable_fusion=False, amodel=model_config['model_clap'])
     # Load checkpoint
-    checkpoint = torch.load(model_name['model_clap_checkpoint'].split('/')[-1])
+    checkpoint = torch.load(model_config['model_clap_checkpoint'].split('/')[-1])
     model_clap.load_state_dict(checkpoint, strict=False)
     return model_clap
 
 def prepare_audio_labels():
+    # Check if the directory and files exist
+    if not os.path.exists('clap-audioset-probe/clap-probe.pkl') or not os.path.exists('clap-audioset-probe/clap-probe.csv'):
+        print("Required files not found. Cloning repository...")
+        subprocess.run(["git", "clone", "https://github.com/MichaelALong/clap-audioset-probe"])
+    # Load the model
     with open('clap-audioset-probe/clap-probe.pkl', 'rb') as f:
         multioutput_model = pickle.load(f)
+    # Load the metrics
     dfmetrics = pd.read_csv("clap-audioset-probe/clap-probe.csv")
     dfmetrics = dfmetrics.sort_values("model_order")
     model_order_to_group_name = pd.Series(dfmetrics.group_name.values, index=dfmetrics.model_order).to_dict()
     return multioutput_model, model_order_to_group_name, dfmetrics
-
+    
 def get_audio_embeddings(audio_path, model_clap):
     audio_files = sorted([f for f in glob.glob(audio_path + '/**/*.mp3', recursive=True) if re.search(r'segment_\d+__keyframe(_vocals)?\.mp3$', f)])
     embeddings = []

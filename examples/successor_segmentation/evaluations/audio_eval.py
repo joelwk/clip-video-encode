@@ -105,16 +105,16 @@ def move_specific_file(processed_dir, file_name):
 def find_and_move_highest_scoring_files(json_dir, processed_dir):
     # Create a set to keep track of processed clips to avoid duplication
     processed_clips = set()
-    for json_file in sorted(glob.glob(os.path.join(json_dir, 'keyframe_audio_clip_*.json'))):
+    for json_file in sorted(glob.glob(os.path.join(json_dir, 'segment_*.json'))):
         base_name = os.path.basename(json_file)
-        clip_id = re.match(r'keyframe_audio_clip_(\d+)(_vocals)?\.json', base_name)
+        clip_id = re.match(r'segment_(\d+)(_vocals)?\.json', base_name)
         if clip_id:
             clip_id = clip_id.group(1)
             if clip_id in processed_clips:
                 continue
             # Construct file names for regular and vocal versions
-            regular_file = f'keyframe_audio_clip_{clip_id}.json'
-            vocals_file = f'keyframe_audio_clip_{clip_id}_vocals.json'
+            regular_file = f'segment_{clip_id}__keyframe.json'
+            vocals_file = f'segment_{clip_id}__keyframe_vocals.json'
             # Initialize scores
             regular_score, vocals_score = 0, 0
             # Check and read the regular JSON file
@@ -128,7 +128,7 @@ def find_and_move_highest_scoring_files(json_dir, processed_dir):
                     data = json.load(file)
                     vocals_score = data.get("audio_classification", {}).get("Human speech", 0)
             # Decide which file to move
-            file_to_move = f'keyframe_audio_clip_{clip_id}' + ('_vocals.flac' if vocals_score > regular_score else '.flac')
+            file_to_move = f'segment_{clip_id}__keyframe' + ('_vocals.flac' if vocals_score > regular_score else '.flac')
             move_specific_file(processed_dir, file_to_move)
             # Mark this clip as processed
             processed_clips.add(clip_id)
@@ -148,7 +148,7 @@ def zeroshot_classifier_audio(output_dir):
     for _, row in dfmetrics.iterrows():
         order = row["model_order"]
         threshold = row["threshold"]
-        all_preds[:, order] = (all_probs[:, order] >= params['audio_threshold']).astype(np.int8)
+        all_preds[:, order] = (all_probs[:, order] >= float(params['audio_threshold'])).astype(np.int8)
 
     for i, input_file in enumerate(audio_files):
         detections = np.where(all_preds[i, :])[0]

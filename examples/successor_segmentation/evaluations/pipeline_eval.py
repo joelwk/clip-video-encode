@@ -5,23 +5,37 @@ import subprocess
 import argparse
 from contextlib import contextmanager
 
+def modify_hook_file(hook_file_path):
+    if hook_file_path:
+        try:
+            with open(hook_file_path, 'r') as file:
+                lines = file.readlines()
+
+            with open(hook_file_path, 'w') as file:
+                for line in lines:
+                    if "from training.data import get_audio_features" in line:
+                        line = line.replace("from training.data import get_audio_features", 
+                                            "from laion_clap.training.data import get_audio_features")
+                    elif "from training.data import int16_to_float32, float32_to_int16" in line:
+                        line = line.replace("from training.data import int16_to_float32, float32_to_int16", 
+                                            "from laion_clap.training.data import int16_to_float32, float32_to_int16")
+                    file.write(line)
+            print(f"Modified hook.py at {hook_file_path}")
+        except Exception as e:
+            print(f"Error modifying hook.py: {e}")
+            
 def install_requirements():
     try:
-        import laion_clap
-        import open_clip
-        from demucs.separate import separator
-
-    except ImportError:
-        print("Installing required packages and restarting...")
+        print("Installing required packages...")
         subprocess.run(["pip", "install", "yt-dlp"])
         subprocess.run(["pip", "install", "laion_clap"])
+        subprocess.run(["pip", "install", "open_clip_torch"])
         subprocess.run(["pip", "install", "scikit-learn==1.3.0"])
         subprocess.run(["pip", "install", "pydub"])
         subprocess.run(["pip", "install", "demucs"])
-
-import laion_clap
-import open_clip
-import torch
+    except:
+        print("Failed to install required packages.")
+        return 1
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')
@@ -53,6 +67,6 @@ def main():
         print(f"An exception occurred: {e}")
         return 1
     return 0 
-
+    
 if __name__ == "__main__":
     sys.exit(main()) 
