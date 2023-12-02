@@ -11,7 +11,7 @@ import re
 import numpy as np
 import json
 
-from prepare import (
+from evaluations.prepare import (
     read_config, get_all_video_ids,generate_embeddings, format_labels, tensor_to_array, 
     remove_duplicate_extension, model_clap, normalize_scores,load_key_image_files,
     load_key_audio_files,get_all_video_ids,prepare_audio_labels,get_audio_embeddings
@@ -103,34 +103,28 @@ def move_specific_file(processed_dir, file_name):
         print(f"File {file_name} not found in {processed_dir}")
 
 def find_and_move_highest_scoring_files(json_dir, processed_dir):
-    # Create a set to keep track of processed clips to avoid duplication
     processed_clips = set()
     for json_file in sorted(glob.glob(os.path.join(json_dir, 'segment_*.json'))):
         base_name = os.path.basename(json_file)
-        clip_id = re.match(r'segment_(\d+)(_vocals)?\.json', base_name)
-        if clip_id:
-            clip_id = clip_id.group(1)
+        clip_id_match = re.match(r'segment_(\d+)(__keyframe)?(_vocals)?\.json', base_name)
+        if clip_id_match:
+            clip_id = clip_id_match.group(1)
             if clip_id in processed_clips:
                 continue
-            # Construct file names for regular and vocal versions
             regular_file = f'segment_{clip_id}__keyframe.json'
             vocals_file = f'segment_{clip_id}__keyframe_vocals.json'
-            # Initialize scores
             regular_score, vocals_score = 0, 0
-            # Check and read the regular JSON file
             if os.path.exists(os.path.join(json_dir, regular_file)):
                 with open(os.path.join(json_dir, regular_file), 'r') as file:
                     data = json.load(file)
                     regular_score = data.get("audio_classification", {}).get("Human speech", 0)
-            # Check and read the vocals JSON file
             if os.path.exists(os.path.join(json_dir, vocals_file)):
                 with open(os.path.join(json_dir, vocals_file), 'r') as file:
                     data = json.load(file)
                     vocals_score = data.get("audio_classification", {}).get("Human speech", 0)
-            # Decide which file to move
-            file_to_move = f'segment_{clip_id}__keyframe' + ('_vocals.flac' if vocals_score > regular_score else '.flac')
+            file_to_move = f'segment_{clip_id}__keyframe' + ('_vocals.mp3' if vocals_score > regular_score else '.mp3')
+            print(f"Moving file: {file_to_move}")
             move_specific_file(processed_dir, file_to_move)
-            # Mark this clip as processed
             processed_clips.add(clip_id)
 
 def zeroshot_classifier_audio(output_dir):
@@ -171,7 +165,7 @@ def zeroshot_classifier_audio(output_dir):
         npy_filename_base = filename_without_ext
         np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
 
-def main(in_path, output_path, max_duration_ms, json_path):
+def main(in_path, output_path, max_duration_ms, final_audio):
     # Separate audio
     convert_flac_to_mp3(output_path)
     separate_audio(in_path, output_path, max_duration_ms)
@@ -180,7 +174,7 @@ def main(in_path, output_path, max_duration_ms, json_path):
     # Classify audio
     convert_flac_to_mp3(output_path)
     zeroshot_classifier_audio(output_path)
-    find_and_move_highest_scoring_files(json_path, output_path)
+    find_and_move_highest_scoring_files(output_path, final_audio)
 
 if __name__ == '__main__':
     # Example parameters
@@ -190,6 +184,6 @@ if __name__ == '__main__':
         in_path = f"./evaluations/image_audio_pairs/{str(video)}"
         output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
         max_duration_ms = int(params['max_duration_ms'])
-        json_path = f"./evaluations/audio_evaluations/{str(video)}/"
+        final_audio = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
         # Run the main function with provided parameters
-        main(in_path, output_path, max_duration_ms, json_path)
+        main(in_path, output_path, max_duration_ms, final_audio)

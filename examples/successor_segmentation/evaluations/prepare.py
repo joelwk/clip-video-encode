@@ -28,14 +28,14 @@ except ImportError as e:
     if match:
         hook_file_path = match.group(1)
         print(f"Path to hook.py: {hook_file_path}")
-    else:
-        print("Could not find the path to hook.py in the ImportError traceback.")
         modify_hook_file(hook_file_path)
         import laion_clap
         import open_clip
         import tensorflow as tf
         import torch
         from PIL import Image
+    else:
+        print("Could not find the path to hook.py in the ImportError traceback.")
 
 config_path='./clip-video-encode/examples/successor_segmentation/config.ini'
 
