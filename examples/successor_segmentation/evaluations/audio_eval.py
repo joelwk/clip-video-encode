@@ -11,7 +11,7 @@ import re
 import numpy as np
 import json
 
-from prepare import (
+from evaluations.prepare import (
     read_config, get_all_video_ids,generate_embeddings, format_labels, tensor_to_array, 
     remove_duplicate_extension, model_clap, normalize_scores,load_key_image_files,
     load_key_audio_files,get_all_video_ids,prepare_audio_labels,get_audio_embeddings
