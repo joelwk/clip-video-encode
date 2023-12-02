@@ -11,7 +11,7 @@ import re
 import numpy as np
 import json
 
-from evaluations.prepare import (
+from prepare import (
     read_config, get_all_video_ids,generate_embeddings, format_labels, tensor_to_array, 
     remove_duplicate_extension, model_clap, normalize_scores,load_key_image_files,
     load_key_audio_files,get_all_video_ids,prepare_audio_labels,get_audio_embeddings
@@ -94,13 +94,10 @@ def separate_audio(input_dir, processed_dir, max_duration_ms, model="htdemucs", 
     else:
         print(stdout.decode())
 
-def move_specific_file(processed_dir, file_name):
-    file_path = os.path.join(processed_dir, file_name)
-    if os.path.exists(file_path):
-        new_file_path = os.path.join(os.path.dirname(processed_dir), file_name)
-        shutil.move(file_path, new_file_path)
-    else:
-        print(f"File {file_name} not found in {processed_dir}")
+def move_specific_file(source_dir, destination_dir, pattern):
+    for file in glob.glob(os.path.join(source_dir, pattern)):
+        shutil.move(file, os.path.join(destination_dir, os.path.basename(file)))
+        print(f"Moved file: {os.path.basename(file)}")
 
 def find_and_move_highest_scoring_files(json_dir, processed_dir):
     processed_clips = set()
@@ -122,28 +119,28 @@ def find_and_move_highest_scoring_files(json_dir, processed_dir):
                 with open(os.path.join(json_dir, vocals_file), 'r') as file:
                     data = json.load(file)
                     vocals_score = data.get("audio_classification", {}).get("Human speech", 0)
-            file_to_move = f'segment_{clip_id}__keyframe' + ('_vocals.mp3' if vocals_score > regular_score else '.mp3')
-            print(f"Moving file: {file_to_move}")
-            move_specific_file(processed_dir, file_to_move)
+            is_vocals = vocals_score > regular_score
+            mp3_file = f'segment_{clip_id}__keyframe' + ('_vocals.mp3' if is_vocals else '.mp3')
+            json_file = f'segment_{clip_id}__keyframe' + ('_vocals.json' if is_vocals else '.json')
+            npy_pattern = f'segment_{clip_id}__keyframe' + ('_vocals_audio_features.npy' if is_vocals else '_audio_features.npy')
+            move_specific_file(json_dir, processed_dir, mp3_file)
+            move_specific_file(json_dir, processed_dir, json_file)
+            move_specific_file(json_dir, processed_dir, npy_pattern)
             processed_clips.add(clip_id)
 
 def zeroshot_classifier_audio(output_dir):
     params = read_config(section="evaluations")
     labels = read_config("labels")
-    
     model = model_clap()
     multioutput_model, model_order_to_group_name, dfmetrics = prepare_audio_labels()
     audio_files, np_embeddings = get_audio_embeddings(output_dir, model)
-
     all_probs = multioutput_model.predict_proba(np_embeddings)
     all_probs = np.squeeze(np.dstack(all_probs)[:, 1, :])
     all_preds = np.empty_like(all_probs, dtype=np.int8)
-
     for _, row in dfmetrics.iterrows():
         order = row["model_order"]
         threshold = row["threshold"]
         all_preds[:, order] = (all_probs[:, order] >= float(params['audio_threshold'])).astype(np.int8)
-
     for i, input_file in enumerate(audio_files):
         detections = np.where(all_preds[i, :])[0]
         groups_detected = [model_order_to_group_name[x] for x in detections]
@@ -151,8 +148,6 @@ def zeroshot_classifier_audio(output_dir):
         file_name = remove_duplicate_extension(file_name)
         filename_without_ext = file_name.split('.')[0]
         save_path = os.path.join(output_dir, filename_without_ext)
-
-        # Sort audio labels by prob values
         audio_classification = {group: float(all_probs[i, idx]) for idx, group in enumerate(model_order_to_group_name.values())}
         sorted_audio_classification = dict(sorted(audio_classification.items(), key=lambda item: item[1], reverse=True))
         json_data = {
@@ -161,17 +156,13 @@ def zeroshot_classifier_audio(output_dir):
         json_filename = filename_without_ext + '.json'
         with open(os.path.join(output_dir, json_filename), 'w') as json_file:
             json.dump(json_data, json_file, indent=4)
-        # Save embeddings as .npy files
         npy_filename_base = filename_without_ext
         np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
 
 def main(in_path, output_path, max_duration_ms, final_audio):
-    # Separate audio
     convert_flac_to_mp3(output_path)
     separate_audio(in_path, output_path, max_duration_ms)
     reorganize_and_move_vocals(output_path)
-
-    # Classify audio
     convert_flac_to_mp3(output_path)
     zeroshot_classifier_audio(output_path)
     find_and_move_highest_scoring_files(output_path, final_audio)
@@ -184,6 +175,5 @@ if __name__ == '__main__':
         in_path = f"./evaluations/image_audio_pairs/{str(video)}"
         output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
         max_duration_ms = int(params['max_duration_ms'])
-        final_audio = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
-        # Run the main function with provided parameters
+        final_audio = f"./evaluations/audio_evaluations/{str(video)}/"
         main(in_path, output_path, max_duration_ms, final_audio)
