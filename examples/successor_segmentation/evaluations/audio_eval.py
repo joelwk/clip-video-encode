@@ -1,13 +1,10 @@
-import subprocess as sp
+import subprocess
 import os
 import shutil
-import cv2
 import glob
 from pydub import AudioSegment
 from pydub.utils import mediainfo
-import torch
 import glob
-import subprocess
 import os
 import pickle
 import re
@@ -89,7 +86,7 @@ def separate_audio(input_dir, processed_dir, max_duration_ms, model="htdemucs", 
     if not trimmed_files:
         print(f"No valid audio files in {input_dir}")
         return
-    p = sp.Popen(cmd + trimmed_files, stdout=sp.PIPE, stderr=sp.PIPE)
+    p = subprocess.Popen(cmd + trimmed_files, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     if p.returncode != 0:
         print("Command failed, something went wrong.")
@@ -159,7 +156,7 @@ def zeroshot_classifier_audio(output_dir):
         file_name = os.path.basename(input_file)
         file_name = remove_duplicate_extension(file_name)
         filename_without_ext = file_name.split('.')[0]
-        save_path = os.path.join(run_output_dir, filename_without_ext)
+        save_path = os.path.join(output_dir, filename_without_ext)
 
         # Sort audio labels by prob values
         audio_classification = {group: float(all_probs[i, idx]) for idx, group in enumerate(model_order_to_group_name.values())}
@@ -168,11 +165,11 @@ def zeroshot_classifier_audio(output_dir):
             "audio_path": file_name,
             "audio_classification": sorted_audio_classification}
         json_filename = filename_without_ext + '.json'
-        with open(os.path.join(run_output_dir, json_filename), 'w') as json_file:
+        with open(os.path.join(output_dir, json_filename), 'w') as json_file:
             json.dump(json_data, json_file, indent=4)
         # Save embeddings as .npy files
         npy_filename_base = filename_without_ext
-        np.save(os.path.join(run_output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
+        np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
 
 def main(in_path, output_path, max_duration_ms, json_path):
     # Separate audio
@@ -192,7 +189,7 @@ if __name__ == '__main__':
     for video in video_ids:
         in_path = f"./evaluations/image_audio_pairs/{str(video)}"
         output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
-        max_duration_ms = 4000
+        max_duration_ms = int(params['max_duration_ms'])
         json_path = f"./evaluations/audio_evaluations/{str(video)}/"
         # Run the main function with provided parameters
         main(in_path, output_path, max_duration_ms, json_path)

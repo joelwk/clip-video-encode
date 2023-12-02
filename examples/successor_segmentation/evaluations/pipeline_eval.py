@@ -18,7 +18,10 @@ def install_requirements():
         subprocess.run(["pip", "install", "scikit-learn==1.3.0"])
         subprocess.run(["pip", "install", "pydub"])
         subprocess.run(["pip", "install", "demucs"])
-        
+
+import laion_clap
+import open_clip
+import torch
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')

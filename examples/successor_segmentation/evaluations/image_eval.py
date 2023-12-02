@@ -5,15 +5,12 @@ import subprocess
 import argparse
 import numpy as np
 import glob
+
 from evaluations.prepare import (
     read_config, generate_embeddings, format_labels, tensor_to_array, 
     remove_duplicate_extension, process_keyframe_audio_pairs, get_embeddings, model_clip, 
     display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,load_key_image_files, load_key_audio_files, get_all_video_ids
 )
-
-import cv2
-import open_clip
-import torch
     
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Define thresholds

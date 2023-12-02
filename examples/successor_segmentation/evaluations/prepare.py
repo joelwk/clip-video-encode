@@ -5,6 +5,7 @@ import os
 import json
 import re
 import glob
+import subprocess
 
 import numpy as np
 import open_clip
@@ -117,11 +118,10 @@ def model_clip(config_path=config_path):
 
 def model_clap():
     model_config = read_config('evaluations')
-    model_name = model_config['model_clap']
     # Load CLAP model and checkpoint
-    if not os.path.isfile(model_name['model_clap_checkpoint'].split('/')[-1]):
-        subprocess.run(['wget', model_name['model_clap_checkpoint']])
-    model_clap = laion_clap.CLAP_Module(enable_fusion=False, amodel=model_name['model_clap'])
+    if not os.path.isfile(model_config['model_clap_checkpoint'].split('/')[-1]):
+        subprocess.run(['wget', model_config['model_clap_checkpoint']])
+    model_clap = laion_clap.CLAP_Module(enable_fusion=False, amodel=model_config['model_clap'])
     # Load checkpoint
     checkpoint = torch.load(model_name['model_clap_checkpoint'].split('/')[-1])
     model_clap.load_state_dict(checkpoint, strict=False)
