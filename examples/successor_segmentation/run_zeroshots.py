@@ -16,9 +16,10 @@ def run_script(script_main_func, script_name):
 def run():
     scripts = [
         ("main", "evaluations.pipeline_eval"),
-        ("main", "evaluations.image_eval")
-    ]
-    
+        ("main", "evaluations.image_eval"),
+        ("main", "evaluations.audio_eval"),
+        ("main", "evaluations.pair_process"),]
+
     for idx, (script_func_name, script_path) in enumerate(scripts):
         print(f"Running script: {script_path}.{script_func_name}")  # Debug statement - keeping for information output
         script_func = import_module(script_path).__dict__[script_func_name] 

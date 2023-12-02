@@ -18,8 +18,7 @@ def run():
         ("main", "srcs.pipeline"),
         ("main", "srcs.getvideo2dataset"),
         ("main", "srcs.clip_encode"),
-        ("initialize_and_run", "srcs.segment")  
-    ]
+        ("initialize_and_run", "srcs.segment"),]
     
     for idx, (script_func_name, script_path) in enumerate(scripts):
         print(f"Running script: {script_path}.{script_func_name}")  # Debug statement - keeping for information output
@@ -28,7 +27,6 @@ def run():
         if exit_status is not None and exit_status != 0:
             print(f"Exiting due to error in script: {script_path}.{script_func_name}")  # Debug statement - keeping for information output
             sys.exit(exit_status)
-
 
 if __name__ == "__main__":
     run()

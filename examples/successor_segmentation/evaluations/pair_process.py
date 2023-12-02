@@ -2,20 +2,23 @@ import json
 import os
 import glob
 import shutil
+import numpy as np
+import re
 
-from evaluations.prepare import (
-    model_clap,prepare_audio_labels
+from prepare import (
+    model_clap, prepare_audio_labels, read_config, format_labels, softmax,get_all_video_ids
 )
 
-def pair_and_classify_with_clap(audio_dir, json_dir, output_dir, model_checkpoint):
+def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
     params = read_config(section="evaluations")
+    labels = read_config("labels")
     model = model_clap()
     multioutput_model, model_order_to_group_name, dfmetrics = prepare_audio_labels()
     # Ensure output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     # Iterate over audio files
-    audio_files = sorted(glob.glob(audio_dir + '/*_vocals.mp3', recursive=True))
+    audio_files = sorted(glob.glob(audio_dir + '/*.mp3', recursive=True))
     for audio_file in audio_files:
         base_name = os.path.basename(audio_file)
         print(f'Processing {base_name}')
@@ -33,16 +36,16 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir, model_checkpoin
             if json_files and image_files:
                 json_file = json_files[0]
                 image_file = image_files[0]
-                text_features_path = os.path.join(params['embeddings'], 'text_features.npy')
-                text_features = np.load(text_features_path)
+                emotions_list = format_labels(labels, 'emotions')
+                text_features = model.get_text_embedding(emotions_list, use_tensor=False)
+
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
                 # Get and normalize text embeddings for emotions
-                text_embed = model.get_text_embedding(text_features, use_tensor=False)
                 # Calculate similarity scores
-                similarity_scores = softmax(100 * audio_embed.reshape(1, -1) @ text_embed.T)
+                similarity_scores = softmax(100 * audio_embed.reshape(1, -1) @ text_features.T)
                 # Convert similarity scores from NumPy array to list
                 similarity_scores = similarity_scores.tolist()
-                sorted_emotion_score_pairs = {k: v for k, v in sorted({emotions[i]: float(similarity_scores[0][i]) for i in range(len(emotions))}.items(), key=lambda item: item[1], reverse=True)}
+                sorted_emotion_score_pairs = {k: v for k, v in sorted({format_labels(labels, 'emotions')[i]: float(similarity_scores[0][i]) for i in range(len(format_labels(labels, 'emotions')))}.items(), key=lambda item: item[1], reverse=True)}
                 # Prepare and save JSON data with classification results
                 json_data = {
                     "audio_file_name": base_name,
@@ -82,12 +85,12 @@ def combine_emotion_scores(image_json_path, audio_json_path, output_path):
     with open(output_path, 'w') as file:
         json.dump(output, file, indent=4)
 
-def process_all_keyframes(video_base_path, audio_processed_base_path, vocals_base_path, output_base_path):
+def process_all_keyframes(video_base_path, audio_processed_base_path, output_base_path):
     # Iterate through all video directories
-    for video_dir in glob.glob(video_base_path + '/video_*'):
-        video_id = os.path.basename(video_dir).split('_')[1]
+    for video_dir in glob.glob(video_base_path + '/*'):
+        video_id = os.path.basename(video_dir)
         # Create a directory for the current video in the output base path
-        video_output_dir = os.path.join(output_base_path, f'video_{video_id}')
+        video_output_dir = os.path.join(output_base_path, f'{video_id}')
         if not os.path.exists(video_output_dir):
             os.makedirs(video_output_dir)
         # Iterate through all keyframe JSON files in the video directory
@@ -95,7 +98,7 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, vocals_bas
             keyframe_id = os.path.basename(image_json_file).split('_')[1]
             print(f'Processing keyframe {keyframe_id} of video {video_id}')
             # Construct paths for corresponding audio and vocals JSON files
-            audio_json_path = os.path.join(audio_processed_base_path, f'video_{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
+            audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
             # Check if both audio and vocals JSON files exist
             if os.path.exists(audio_json_path):
                 output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}.json')
@@ -114,3 +117,18 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, vocals_bas
                 if os.path.exists(audio_file_path):
                     shutil.copy(audio_file_path, video_output_dir)
                     print(f'Processed audio file copied for keyframe {keyframe_id} of video {video_id}')
+
+def main():
+    params = read_config(section="evaluations")
+    video_ids = get_all_video_ids(params['completedatasets'])
+    for video in video_ids:
+        audio_directory = f"./evaluations/audio_evaluations/{str(video)}"
+        json_image_directory = f"./evaluations/image_evaluations/{str(video)}"
+        paired_evaluations = f"./evaluations/paired_evaluations/"
+        all_image = f"./evaluations/image_evaluations"
+        all_audio = f"./evaluations/audio_evaluations"
+        pair_and_classify_with_clap(audio_directory, json_image_directory, audio_directory)
+        process_all_keyframes(all_image, all_audio, paired_evaluations)
+
+if __name__ == "__main__":
+    main()

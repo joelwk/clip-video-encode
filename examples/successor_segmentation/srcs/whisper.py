@@ -69,7 +69,6 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_da
 def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
     # Load the audio file using pydub
     audio = AudioSegment.from_file(audio_path)
-
     try:
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
         pipe = pipeline("automatic-speech-recognition",
@@ -94,7 +93,6 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
             # Process the segment using Whisper
             outputs = pipe(temp_path, return_timestamps=True)
             os.remove(temp_path)  # Remove the temporary file
-
             chunks = outputs.get("chunks", [])
             if chunks:
                 transcript = ' '.join(chunk.get('text', '') for chunk in chunks)
@@ -104,12 +102,11 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
                     'text': transcript
                 }
                 output_aligned_final.append(segment_info)
-
+                
         # Save the results to a JSON file
         json_path = os.path.join(audio_clip_output_dir, 'outputs.json')
         with open(json_path, 'w') as f:
             json.dump(output_aligned_final, f)
-
     except Exception as e:
         print(f"Error in audio_pipeline: {e}")
 
@@ -120,6 +117,7 @@ def full_audio_transcription_pipeline(audio_path, output_dir):
                         "openai/whisper-large-v2",
                         torch_dtype=torch.float16,
                         device=device)
+
         # Process the entire audio file using Whisper
         outputs = pipe(audio_path,chunk_length_s=30,batch_size=30, return_timestamps=True)
         chunks = outputs.get("chunks", [])
@@ -156,7 +154,6 @@ def process_audio_files():
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
                     audio_pipeline(audio_path, individual_output_dir, keyframe_data, 5)
-
             process_full_audio = string_to_bool(config.get("full_whisper_audio", "False"))
             if process_full_audio:
                 if not os.path.exists(full_audio_clip_output_dir):
