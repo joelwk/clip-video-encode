@@ -28,8 +28,7 @@ def check_for_new_segment(distances: Union[np.ndarray, List[float]],
         threshold_frame_i = avg_distance_frame_i + 0.5 * std_dev_frame_i
         successor_distance = successor_distances[i]
         comparison_value = thresholds['successor_value'] or threshold_frame_i
-        if float(successor_distance) > float(comparison_value):
-            print(f"New segment detected at frame {i + 1}") 
+        if float(successor_distance) > float(comparison_value) and i < num_frames - 1:
             new_segments.append(i)
     return new_segments
     
@@ -72,16 +71,6 @@ def calculate_video_frame_phash_similarity(frame1: np.ndarray,
 def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: List[str],
                                       embedding_values: List[np.ndarray], 
                                       thresholds: Dict[str, Optional[float]]) -> Tuple[List[Tuple[np.ndarray, np.ndarray]], List[float]]:
-    """
-    Extracts keyframes from the video and pairs them with corresponding embeddings, then applies perceptual hashing for filtering.
-    Parameters:
-        video_files (List[str]): List of paths to the original video files.
-        keyframe_files (List[str]): List of paths to the video files containing keyframes.
-        embedding_values (List[np.ndarray]): List of embeddings for each keyframe.
-        thresholds (Dict[str, Optional[float]]): A dictionary containing threshold values, e.g., for perceptual hashing.
-    Returns:
-        Tuple[List[Tuple[np.ndarray, np.ndarray]], List[float]]: A list of tuples where each tuple contains a frame and its corresponding embedding, and a list of timestamps for each keyframe.
-    """
     frame_embedding_pairs = []
     timestamps = []
     total_duration = ld.get_video_duration(video_files)
@@ -96,9 +85,14 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
             frame_embedding_pairs.append((frame, embedding))
             timestamps.append(timestamp)
         vid_cap.release()
+    # Apply phash filtering
     if thresholds['phash_threshold'] is not None:
         frames = [frame for frame, _ in frame_embedding_pairs]
         filtered_timestamps = filter_keyframes_based_on_phash(frames, timestamps, thresholds)
         frame_embedding_pairs = [(frame, emb) for frame, emb, ts in zip(frames, embedding_values, timestamps) if ts in filtered_timestamps]
         timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
+    # Check to ensure lengths match
+    if len(frame_embedding_pairs) != len(timestamps):
+        print("Mismatch in the number of frames and timestamps after filtering.")
     return frame_embedding_pairs, timestamps
+

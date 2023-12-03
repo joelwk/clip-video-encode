@@ -6,6 +6,7 @@ import json
 from io import BytesIO
 import ast
 from srcs.load_data import read_config
+import shutil
 
 def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
     # List all folders in the root directory and sort them
