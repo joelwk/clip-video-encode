@@ -168,7 +168,6 @@ def run_analysis(analyzer_class, specific_videos=None):
                 continue
             else:
                 raise
-
         video_files = ld.load_video_files(video, params)
         if not video_files:
             print(f"No video files found for video: {video}. Skipping analysis.")

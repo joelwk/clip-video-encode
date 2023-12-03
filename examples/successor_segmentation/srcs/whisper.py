@@ -134,6 +134,7 @@ def full_audio_transcription_pipeline(audio_path, output_dir):
         
 def process_audio_files():
     directories = read_config(section="evaluations")
+    config_params = read_config(section="config_params")
     try:
         base_path = directories['completedatasets']
         for n in os.listdir(base_path):
@@ -154,7 +155,7 @@ def process_audio_files():
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
                     audio_pipeline(audio_path, individual_output_dir, keyframe_data, 5)
-            process_full_audio = string_to_bool(config.get("full_whisper_audio", "False"))
+            process_full_audio = string_to_bool(config_params.get("full_whisper_audio", "False"))
             if process_full_audio:
                 if not os.path.exists(full_audio_clip_output_dir):
                     os.makedirs(full_audio_clip_output_dir)

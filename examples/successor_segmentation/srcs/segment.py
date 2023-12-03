@@ -23,8 +23,11 @@ def run_all_scripts(config):
     segment_video = string_to_bool(config.get("segment_video", "False"))
     segment_audio = string_to_bool(config.get("segment_audio", "True"))
     compute_embeddings = string_to_bool(config.get("compute_embeddings", "False"))
-    specific_videos = config.get("specific_videos", None)
-
+    specific_videos_str = config.get("specific_videos", "")
+    if specific_videos_str and specific_videos_str != "None":
+        specific_videos = [int(x.strip()) for x in specific_videos_str.strip('[]').split(',')]
+    else:
+        specific_videos = None
     rename_and_move_main()
     run_analysis(SegmentSuccessorAnalyzer)
     fold_seams_main(segment_video, segment_audio, specific_videos)
