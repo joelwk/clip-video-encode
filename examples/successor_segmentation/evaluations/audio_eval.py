@@ -159,16 +159,7 @@ def zeroshot_classifier_audio(output_dir):
         npy_filename_base = filename_without_ext
         np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
 
-def main(in_path, output_path, max_duration_ms, final_audio):
-    convert_flac_to_mp3(output_path)
-    separate_audio(in_path, output_path, max_duration_ms)
-    reorganize_and_move_vocals(output_path)
-    convert_flac_to_mp3(output_path)
-    zeroshot_classifier_audio(output_path)
-    find_and_move_highest_scoring_files(output_path, final_audio)
-
-if __name__ == '__main__':
-    # Example parameters
+def main():
     params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
@@ -176,4 +167,12 @@ if __name__ == '__main__':
         output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
         max_duration_ms = int(params['max_duration_ms'])
         final_audio = f"./evaluations/audio_evaluations/{str(video)}/"
-        main(in_path, output_path, max_duration_ms, final_audio)
+        convert_flac_to_mp3(output_path)
+        separate_audio(in_path, output_path, max_duration_ms)
+        reorganize_and_move_vocals(output_path)
+        convert_flac_to_mp3(output_path)
+        zeroshot_classifier_audio(output_path)
+        find_and_move_highest_scoring_files(output_path, final_audio)
+        
+if __name__ == '__main__':
+    main()
