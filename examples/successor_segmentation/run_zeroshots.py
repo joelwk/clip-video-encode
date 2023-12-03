@@ -18,7 +18,8 @@ def run():
         ("main", "evaluations.pipeline_eval"),
         ("main", "evaluations.image_eval"),
         ("main", "evaluations.audio_eval"),
-        ("main", "evaluations.pair_process"),]
+        ("main", "evaluations.pair_process"),
+        ("main", "evaluations.save_to_webdataset"),]
 
     for idx, (script_func_name, script_path) in enumerate(scripts):
         print(f"Running script: {script_path}.{script_func_name}")  # Debug statement - keeping for information output
