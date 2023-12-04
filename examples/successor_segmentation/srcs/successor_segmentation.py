@@ -40,6 +40,7 @@ class SegmentSuccessorAnalyzer:
     def run(self, video_files: List[str], thresholds: Dict[str, Optional[float]], keyframe_files: List[str], save_dir: str) -> Tuple[List[np.ndarray], List[float]]:
         # Use stored thresholds if none are provided
         thresholds = thresholds or self.thresholds
+        config_params = ld.read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
         # Check for edge cases
         if len(frame_embedding_pairs) < 2:
@@ -54,7 +55,7 @@ class SegmentSuccessorAnalyzer:
         successor_distance = calculate_successor_distance(self.embedding_values)
         initial_new_segments = check_for_new_segment(distances, successor_distance, thresholds)
         new_segments = self.calculate_new_segments(initial_new_segments, timestamps)
-        self.save_keyframes(frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir)
+        self.save_keyframes(frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir, plot_grid=ld.string_to_bool(config_params.get("plot_grid", "False")))
 
     def calculate_new_segments(self, initial_new_segments, timestamps):
         if self.max_segment_duration is None:
@@ -86,32 +87,55 @@ class SegmentSuccessorAnalyzer:
                 return j
         return intervening_frames[0]
 
-    def save_keyframes(self, frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir):
+    def save_keyframes(self, frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir, plot_grid=True):
         if len(frame_embedding_pairs) != len(timestamps):
             print("Mismatch in the number of frames and timestamps. Exiting save_keyframes.")
             return
 
-        num_frames = len(frame_embedding_pairs)
-        num_cols = 4
-        num_rows = int(np.ceil(num_frames / num_cols))
-        if num_rows <= 0 or num_cols <= 0:
-            print("Invalid grid dimensions. Skipping grid plotting.")
-            return
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows))
-        if num_frames == 1:
-            axes = np.array([[axes]])
-        flat_axes = axes.flatten()
         keyframe_data = {}
-        segment_counter = 0 # Start counting from 1
-        for i, ax in enumerate(flat_axes[:num_frames]):
-            frame, _ = frame_embedding_pairs[i]
+        segment_counter = 0
+
+        if plot_grid:
+            num_frames = len(frame_embedding_pairs)
+            num_cols = 4
+            num_rows = int(np.ceil(num_frames / num_cols))
+            if num_rows <= 0 or num_cols <= 0:
+                print("Invalid grid dimensions. Skipping grid plotting.")
+                return
+
+            max_fig_width, max_fig_height = 16000, 16000 
+            fig_width, fig_height = 4 * num_cols, 4 * num_rows
+            if fig_width > max_fig_width or fig_height > max_fig_height:
+                scale_factor = min(max_fig_width / fig_width, max_fig_height / fig_height)
+                fig_width, fig_height = scale_factor * fig_width, scale_factor * fig_height
+            fig, axes = plt.subplots(num_rows, num_cols, figsize=(fig_width, fig_height))
+
+            if num_frames == 1:
+                axes = np.array([[axes]])
+            flat_axes = axes.flatten()
+
+            for i, ax in enumerate(flat_axes[:num_frames]):
+                frame, _ = frame_embedding_pairs[i]
+                if is_clear_image(frame):
+                    ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    if i in new_segments:
+                        segment_counter += 1
+                    annotate_plot(ax, idx=i, successor_sim=successor_distance, distances=distances,
+                                  global_frame_start_idx=0, window_idx=i,
+                                  segment_label=f"Segment {segment_counter}", timestamp=timestamps[i])
+
+            for ax in flat_axes[num_frames:]:
+                ax.axis('off')
+            plt.tight_layout()
+            plt_path = os.path.join(save_dir, 'keyframes_grid.png')
+            plt.savefig(plt_path)
+
+        # This part will run regardless of the plot_grid flag
+        segment_counter = 0
+        for i, (frame, _) in enumerate(frame_embedding_pairs):
             if is_clear_image(frame):
-                ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 if i in new_segments:
                     segment_counter += 1
-                annotate_plot(ax, idx=i, successor_sim=successor_distance, distances=distances,
-                              global_frame_start_idx=0, window_idx=i,
-                              segment_label=f"Segment {segment_counter}", timestamp=timestamps[i])
                 individual_keyframe_filename = f'keyframe_{i}_timestamp_{timestamps[i]:.2f}.png'
                 individual_keyframe_path = os.path.join(save_dir, individual_keyframe_filename)
                 cv2.imwrite(individual_keyframe_path, frame)
@@ -121,11 +145,6 @@ class SegmentSuccessorAnalyzer:
                     'filename': individual_keyframe_filename
                 }
 
-        for ax in flat_axes[num_frames:]:
-            ax.axis('off')
-        plt.tight_layout()
-        plt_path = os.path.join(save_dir, 'keyframes_grid.png')
-        plt.savefig(plt_path)
         json_path = os.path.join(save_dir, 'keyframe_data.json')
         with open(json_path, 'w') as f:
             json.dump(keyframe_data, f)
