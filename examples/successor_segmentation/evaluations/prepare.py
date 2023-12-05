@@ -106,26 +106,33 @@ def sort_and_store_scores(probabilities, labels):
     return sorted_scores
 
 def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
-    # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     keyframe_filenames = [f for f in os.listdir(faces_dir) if f.endswith('.png')]
     for keyframe_filename in keyframe_filenames:
-        match = re.search(r'keyframe_(\d+)_', keyframe_filename)
-        if match:
-            segment_idx = int(match.group(1))
+        segment_match = re.search(r'keyframe_(\d+)_', keyframe_filename)
+        video_match = faces_dir.split('/')[-1]
+        video_match = re.search(r'(\d+)', video_match)
+        video_idx = int(video_match.group(1))
+        if segment_match:
+            segment_idx = int(segment_match.group(1))
             audio_filename = f"segment_{segment_idx}__keyframe.flac"
+            text_filename = f"video_(video_idx)_keyframe_audio_clip_{segment_idx}.txt"
             audio_path = os.path.join(audio_dir, audio_filename)
-            text_filename = f"video_1_keyframe_audio_clip_{segment_idx}.txt"
             text_path = os.path.join(audio_dir, text_filename)
+            image_path = os.path.join(faces_dir, keyframe_filename)
             if os.path.isfile(audio_path):
-                output_audio_path = os.path.join(output_dir, remove_duplicate_extension(audio_filename))
+                output_audio_path = os.path.join(output_dir, audio_filename)
                 shutil.copy(audio_path, output_audio_path)
                 print(f"Copied {audio_path} to {output_audio_path}")
             if os.path.isfile(text_path):
-                output_text_path = os.path.join(output_dir, remove_duplicate_extension(text_filename))
+                output_text_path = os.path.join(output_dir, text_filename)
                 shutil.copy(text_path, output_text_path)
                 print(f"Copied {text_path} to {output_text_path}")
+            if os.path.isfile(image_path):
+                output_image_path = os.path.join(output_dir, keyframe_filename)
+                shutil.copy(image_path, output_image_path)
+                print(f"Copied {image_path} to {output_image_path}")
         else:
             print(f"No digits found in filename: {keyframe_filename}")
             
