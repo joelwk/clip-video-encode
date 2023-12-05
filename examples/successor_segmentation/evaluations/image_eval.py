@@ -64,14 +64,15 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     image_features = model.encode_image(image_preprocessed)
     image_features = image_features.detach().numpy()
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
-
-    # Calculate probabilities for different categories using softmax
+    
+    # Calculate probabilities for different categories using softma
     is_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_person.T))
     type_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_type_person.T))
     face_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_number_of_faces.T))
     orientation_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_orientation.T))
     engagement_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_engaged.T))
     text_probs_emotions = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features.T))
+    text_score_emotions = image_features @ text_features.T
     text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
 
     face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
@@ -98,13 +99,15 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         # Sort and store the detection scores for faces, emotions, and valence
         sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
         sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
+        sorted_emotions_scores = sort_and_store_scores(text_score_emotions[0], format_labels(labels, 'emotions'))
         sorted_valence = sort_and_store_scores(text_probs_valence[0], format_labels(labels, 'valence'))
         face_detected_python_bool = bool(face_detected)
         json_data = {
             "image_path": filename,
             "face_detected": face_detected_python_bool,
             "face_detection_scores": sorted_face_detection_scores,
-            "emotions": sorted_emotions,
+            "emotions_probs": sorted_emotions,
+            "emotions_scores":sorted_emotions_scores,
             "valence": sorted_valence}
             
         json_filename = filename_without_ext + '.json'

@@ -42,14 +42,17 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
                 # Get and normalize text embeddings for emotions
                 # Calculate similarity scores
-                similarity_scores = softmax(float(params['scalingfactor']) * normalize_scores(audio_embed.reshape(1, -1) @ text_features.T))
+                similarity_scores = audio_embed.reshape(1, -1) @ text_features.T
+                similarity_probs = softmax(float(params['scalingfactor']) * audio_embed.reshape(1, -1) @ text_features.T)
                 # Convert similarity scores from NumPy array to list
-                similarity_scores = similarity_scores.tolist()
+                similarity_probs = similarity_probs.tolist()
                 sorted_emotion_score_pairs = {k: v for k, v in sorted({format_labels(labels, 'emotions')[i]: float(similarity_scores[0][i]) for i in range(len(format_labels(labels, 'emotions')))}.items(), key=lambda item: item[1], reverse=True)}
+                sorted_emotion_probs_pairs = {k: v for k, v in sorted({format_labels(labels, 'emotions')[i]: float(similarity_probs[0][i]) for i in range(len(format_labels(labels, 'emotions')))}.items(), key=lambda item: item[1], reverse=True)}
                 # Prepare and save JSON data with classification results
                 json_data = {
                     "audio_file_name": base_name,
-                    "sorted_emotion_score_pairs": sorted_emotion_score_pairs,
+                    "sorted_emotion_prob_pairs": sorted_emotion_probs_pairs,
+                    "sorted_emotion_score_pairs":sorted_emotion_score_pairs
                 }
                 output_json_path = f"{output_dir}/{base_name.replace('.mp3', '')}_analysis.json"
                 with open(output_json_path, 'w') as out_f:
@@ -65,8 +68,8 @@ def combine_emotion_scores(image_json_path, audio_json_path, output_path):
         audio_data = json.load(file)
     combined_emotions = {}
     # Combine image emotions
-    for emotion, score in image_data['emotions'].items():
-        combined_emotions[emotion] = {'image': score}
+    for emotion, prob in image_data['emotions_scores'].items():
+        combined_emotions[emotion] = {'image': prob}
     # Combine audio emotions
     for emotion, score in audio_data['sorted_emotion_score_pairs'].items():
         if emotion in combined_emotions:
