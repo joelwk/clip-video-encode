@@ -6,7 +6,7 @@ import numpy as np
 import re
 
 from evaluations.prepare import (
-    model_clap, prepare_audio_labels, read_config, format_labels, softmax,get_all_video_ids
+    model_clap, prepare_audio_labels, read_config, format_labels, softmax,get_all_video_ids,normalize_scores
 )
 
 def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
@@ -42,7 +42,7 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
                 # Get and normalize text embeddings for emotions
                 # Calculate similarity scores
-                similarity_scores = softmax(100 * audio_embed.reshape(1, -1) @ text_features.T)
+                similarity_scores = softmax(float(params['scalingfactor']) * normalize_scores(audio_embed.reshape(1, -1) @ text_features.T))
                 # Convert similarity scores from NumPy array to list
                 similarity_scores = similarity_scores.tolist()
                 sorted_emotion_score_pairs = {k: v for k, v in sorted({format_labels(labels, 'emotions')[i]: float(similarity_scores[0][i]) for i in range(len(format_labels(labels, 'emotions')))}.items(), key=lambda item: item[1], reverse=True)}
