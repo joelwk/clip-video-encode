@@ -117,7 +117,7 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
         if segment_match:
             segment_idx = int(segment_match.group(1))
             audio_filename = f"segment_{segment_idx}__keyframe.flac"
-            text_filename = f"video_(video_idx)_keyframe_audio_clip_{segment_idx}.txt"
+            text_filename = f"video_{video_idx}_keyframe_audio_clip_{segment_idx}.txt"
             audio_path = os.path.join(audio_dir, audio_filename)
             text_path = os.path.join(audio_dir, text_filename)
             image_path = os.path.join(faces_dir, keyframe_filename)
