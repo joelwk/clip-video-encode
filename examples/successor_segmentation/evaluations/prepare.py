@@ -149,12 +149,8 @@ def model_clip(config_path=config_path):
     model_name = model_config['model_clip']
     model_clip, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(model_name)
     tokenizer = open_clip.get_tokenizer(model_name)
-
     if torch.cuda.is_available():
         model_clip = model_clip.to('cuda')
-
-    # Print the device of the model
-    print(f'Model is on device: {get_model_device(model_clip)}')
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
 def model_clap():
@@ -195,7 +191,6 @@ def get_audio_embeddings(audio_path, model_clap):
         embeddings.append(normalized_embed)
     return audio_files, np.vstack(embeddings)
 
-    
 def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations')
     labels = read_config('labels')

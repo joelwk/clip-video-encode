@@ -45,11 +45,10 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 text_features = normalize_vectors(text_features)
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
                 audio_embed_normalized = normalize_vectors(audio_embed.reshape(1, -1))
-
-                # Get and normalize text embeddings for emotions
                 # Calculate similarity scores
-                similarity_scores = audio_embed.reshape(1, -1) @ text_features.T
-                similarity_probs = softmax(float(params['scalingfactor']) * audio_embed.reshape(1, -1) @ text_features.T)
+                similarity_scores = audio_embed_normalized @ text_features.T
+                
+                similarity_probs = softmax(float(params['scalingfactor']) * audio_embed_normalized @ text_features.T)
                 # Convert similarity scores from NumPy array to list
                 similarity_probs = similarity_probs.tolist()
                 sorted_emotion_score_pairs = {k: v for k, v in sorted({format_labels(labels, 'emotions')[i]: float(similarity_scores[0][i]) for i in range(len(format_labels(labels, 'emotions')))}.items(), key=lambda item: item[1], reverse=True)}
