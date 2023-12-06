@@ -5,9 +5,13 @@ import shutil
 import numpy as np
 import re
 
-from evaluations.prepare import (
-    model_clap, prepare_audio_labels, read_config, format_labels, softmax,get_all_video_ids,normalize_scores
+from prepare import (
+    model_clap, prepare_audio_labels,read_config, format_labels, softmax,get_all_video_ids,normalize_scores
 )
+
+def normalize_vectors(vectors):
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    return vectors / norms
 
 def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
     params = read_config(section="evaluations")
@@ -38,8 +42,10 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 image_file = image_files[0]
                 emotions_list = format_labels(labels, 'emotions')
                 text_features = model.get_text_embedding(emotions_list, use_tensor=False)
-
+                text_features = normalize_vectors(text_features)
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
+                audio_embed_normalized = normalize_vectors(audio_embed.reshape(1, -1))
+
                 # Get and normalize text embeddings for emotions
                 # Calculate similarity scores
                 similarity_scores = audio_embed.reshape(1, -1) @ text_features.T

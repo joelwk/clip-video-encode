@@ -59,9 +59,6 @@ def load_key_audio_files(vid, params):
 def get_all_video_ids(directory):
     return iter([int(os.path.basename(f)) for f in glob.glob(os.path.join(directory, '*'))])
 
-def tensor_to_array(tensor):
-    return tensor.cpu().numpy()
-
 def generate_embeddings(tokenizer, model_clip, prompts, file_name):
     if not os.path.exists(file_name + '.npy'):
         text = tokenizer(prompts)
