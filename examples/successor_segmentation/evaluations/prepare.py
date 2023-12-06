@@ -59,13 +59,17 @@ def load_key_audio_files(vid, params):
 def get_all_video_ids(directory):
     return iter([int(os.path.basename(f)) for f in glob.glob(os.path.join(directory, '*'))])
 
+def tensor_to_array(tensor):
+    return tensor.cpu().numpy()
+
 def generate_embeddings(tokenizer, model_clip, prompts, file_name):
     if not os.path.exists(file_name + '.npy'):
-        text = tokenizer(prompts)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        text = tokenizer(prompts).to(device)
         with torch.no_grad():
             text_features = model_clip.encode_text(text)
             text_features /= text_features.norm(dim=-1, keepdim=True)
-        text_features = tensor_to_array(text_features)
+        text_features = tensor_to_array(text_features) 
         np.save(file_name, text_features)
     else:
         text_features = np.load(file_name + '.npy')
@@ -135,13 +139,22 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
             
 def format_labels(labels, key):
     return [label.strip() for label in labels[key].replace('\\\n', '').split(',')]
+    
+def get_model_device(model):
+    # Returns the device of the first parameter of the model
+    return next(model.parameters()).device
 
 def model_clip(config_path=config_path):
     model_config = read_config('evaluations')
-    # Load CLIP model and tokenizer
     model_name = model_config['model_clip']
     model_clip, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(model_name)
     tokenizer = open_clip.get_tokenizer(model_name)
+
+    if torch.cuda.is_available():
+        model_clip = model_clip.to('cuda')
+
+    # Print the device of the model
+    print(f'Model is on device: {get_model_device(model_clip)}')
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
 def model_clap():
@@ -153,6 +166,8 @@ def model_clap():
     # Load checkpoint
     checkpoint = torch.load(model_config['model_clap_checkpoint'].split('/')[-1])
     model_clap.load_state_dict(checkpoint, strict=False)
+    if torch.cuda.is_available():
+        model_clap = model_clap.to('cuda')
     return model_clap
 
 def prepare_audio_labels():
@@ -173,11 +188,13 @@ def get_audio_embeddings(audio_path, model_clap):
     audio_files = sorted([f for f in glob.glob(audio_path + '/**/*.mp3', recursive=True) if re.search(r'segment_\d+__keyframe(_vocals)?\.mp3$', f)])
     embeddings = []
     for input_file in audio_files:
-        print(f"Processing {input_file}")
-        audio_embed = np.squeeze(model_clap.get_audio_embedding_from_filelist([input_file], use_tensor=False))
-        normalized_embed = normalize_scores(audio_embed.reshape(1, -1))
-        embeddings.append(audio_embed)
+        audio_embed = model_clap.get_audio_embedding_from_filelist([input_file], use_tensor=True)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        audio_embed = audio_embed.to(device)
+        normalized_embed = normalize_scores(audio_embed.detach().reshape(1, -1).cpu().numpy())
+        embeddings.append(normalized_embed)
     return audio_files, np.vstack(embeddings)
+
     
 def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations')

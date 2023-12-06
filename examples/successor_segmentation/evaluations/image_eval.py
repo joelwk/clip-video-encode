@@ -5,9 +5,9 @@ import subprocess
 import argparse
 import numpy as np
 import glob
-
+import torch
 from evaluations.prepare import (
-    read_config, generate_embeddings, format_labels, tensor_to_array, 
+    read_config, generate_embeddings, format_labels,
     remove_duplicate_extension, process_keyframe_audio_pairs, get_embeddings, model_clip, 
     display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,load_key_image_files, load_key_audio_files, get_all_video_ids
 )
@@ -61,8 +61,9 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     image_preprocessed = preprocess_val(img).unsqueeze(0)
 
     # Encode the image using the CLIP model and normalize the features
+    image_preprocessed = image_preprocessed.to('cuda' if torch.cuda.is_available() else 'cpu')
     image_features = model.encode_image(image_preprocessed)
-    image_features = image_features.detach().numpy()
+    image_features = image_features.detach().cpu().numpy()
     image_features /= np.linalg.norm(image_features, axis=-1, keepdims=True)
     
     # Calculate probabilities for different categories using softma
@@ -74,9 +75,8 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     text_probs_emotions = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features.T))
     text_score_emotions = image_features @ text_features.T
     text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
-
     face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
-
+    
     # Check if face is detected, then proceed with displaying, printing, and saving
     if face_detected:
         if display_image:
@@ -88,14 +88,12 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
             print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
             print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
-
         # Proceed with saving the image and data
         filename = os.path.basename(image_path)
         filename_without_ext = filename.split('.')[0]
         filename = remove_duplicate_extension(filename)
         save_path = os.path.join(run_output_dir, filename)
         img.save(save_path)
-
         # Sort and store the detection scores for faces, emotions, and valence
         sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
         sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
@@ -109,11 +107,9 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             "emotions_probs": sorted_emotions,
             "emotions_scores":sorted_emotions_scores,
             "valence": sorted_valence}
-            
         json_filename = filename_without_ext + '.json'
         with open(os.path.join(run_output_dir, json_filename), 'w') as json_file:
             json.dump(json_data, json_file, indent=4)
-    
         npy_filename_base = filename_without_ext
         np.save(os.path.join(run_output_dir, npy_filename_base + '_image_features.npy'), image_features)
 
