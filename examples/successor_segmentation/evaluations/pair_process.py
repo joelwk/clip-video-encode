@@ -46,7 +46,7 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 audio_embed = np.squeeze(model.get_audio_embedding_from_filelist([audio_file], use_tensor=False))
                 audio_embed_normalized = normalize_vectors(audio_embed.reshape(1, -1))
                 # Calculate similarity scores
-                similarity_scores = audio_embed_normalized @ text_features.T
+                similarity_scores = np.abs(audio_embed_normalized @ text_features.T)
                 similarity_probs = softmax(float(params['scalingfactor']) * audio_embed_normalized @ text_features.T)
                 # Convert similarity scores from NumPy array to list
                 similarity_probs = similarity_probs.tolist()
