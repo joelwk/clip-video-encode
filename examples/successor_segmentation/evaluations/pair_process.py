@@ -119,11 +119,7 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                 if os.path.exists(image_file_path):
                     shutil.copy(image_file_path, video_output_dir)
                 # Copy the audio file from the processed folder to the output directory
-                # join audio path still
-                audio_file_path = audio_json_path.replace('_analysis.json', '.mp3')
-                if os.path.exists(audio_file_path):
-                    shutil.copy(audio_file_path, video_output_dir)
-                audio_file_path_vocals = audio_json_path.replace('_analysis.json', '_vocals.mp3')
+                audio_file_path = audio_json_to_use.replace('_analysis.json', '.mp3')
                 if os.path.exists(audio_file_path):
                     shutil.copy(audio_file_path, video_output_dir)
                     print(f'Processed audio file copied for keyframe {keyframe_id} of video {video_id}')
