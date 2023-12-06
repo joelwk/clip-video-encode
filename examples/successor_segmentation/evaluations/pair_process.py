@@ -47,7 +47,6 @@ def pair_and_classify_with_clap(audio_dir, json_dir, output_dir):
                 audio_embed_normalized = normalize_vectors(audio_embed.reshape(1, -1))
                 # Calculate similarity scores
                 similarity_scores = audio_embed_normalized @ text_features.T
-                
                 similarity_probs = softmax(float(params['scalingfactor']) * audio_embed_normalized @ text_features.T)
                 # Convert similarity scores from NumPy array to list
                 similarity_probs = similarity_probs.tolist()
@@ -106,11 +105,14 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
             keyframe_id = os.path.basename(image_json_file).split('_')[1]
             print(f'Processing keyframe {keyframe_id} of video {video_id}')
             # Construct paths for corresponding audio and vocals JSON files
-            audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
-            # Check if both audio and vocals JSON files exist
-            if os.path.exists(audio_json_path):
+            audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_analysis.json')
+            audio_json_path_vocals = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
+            # Determine which audio file to use
+            audio_json_to_use = audio_json_path_vocals if os.path.exists(audio_json_path_vocals) else audio_json_path
+            # Combine emotions from image and audio
+            if os.path.exists(audio_json_to_use):
                 output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}.json')
-                combine_emotion_scores(image_json_file, audio_json_path, output_json_path)
+                combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
                 print(f'Combined JSON created for keyframe {keyframe_id} of video {video_id}')
                 # Copy the image file to the output directory
                 image_file_path = image_json_file.replace('.json', '.png')
