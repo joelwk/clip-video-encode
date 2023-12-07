@@ -65,7 +65,6 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_da
     with open(json_path, 'w') as f:
         json.dump(output_aligned, f)
 
-
 def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
     # Load the audio file using pydub
     audio = AudioSegment.from_file(audio_path)
