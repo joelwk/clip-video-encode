@@ -35,7 +35,7 @@ def convert_audio_files(base_path, output_format="mp3"):
                         os.remove(file_path)
                         print(f"Removed {file_path}")
 
-                elif filename.endswith("outputs.json"):
+                elif filename.endswith(".json"):
                     # Process JSON files
                     new_json_path = os.path.join(audio_clip_output_dir, filename)
                     if file_path != new_json_path:
@@ -50,15 +50,16 @@ def convert_audio_files(base_path, output_format="mp3"):
                         except json.JSONDecodeError:
                             print(f"Error reading JSON data from {new_json_path}")
                             continue
-                        for segment_data in segments_data:
-                            if isinstance(segment_data, dict) and "segment_idx" in segment_data:
-                                segment_idx = segment_data["segment_idx"]
-                                # Construct text filename
-                                text_filename = f"video_{n}_keyframe_audio_clip_{segment_idx}.txt"
-                                text_path = os.path.join(audio_clip_output_dir, text_filename)
-                                with open(text_path, 'w', encoding='utf-8') as text_file: 
-                                    text_file.write(segment_data.get("text", ""))
-                                print(f"Created text file for segment {segment_idx}")
+                        if filename == ("outputs.json"):
+                            for segment_data in segments_data:
+                                if isinstance(segment_data, dict) and "segment_idx" in segment_data:
+                                    segment_idx = segment_data["segment_idx"]
+                                    # Construct text filename
+                                    text_filename = f"video_{n}_keyframe_audio_clip_{segment_idx}.txt"
+                                    text_path = os.path.join(audio_clip_output_dir, text_filename)
+                                    with open(text_path, 'w', encoding='utf-8') as text_file: 
+                                        text_file.write(segment_data.get("text", ""))
+                                    print(f"Created text file for segment {segment_idx}")
 
 def move_and_remove_subdirectory(audio_clip_output_dir):
     for subdir in os.listdir(audio_clip_output_dir):
