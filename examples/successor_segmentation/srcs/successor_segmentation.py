@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 from imagehash import phash
 from matplotlib.patches import Rectangle
-
+from srcs.pipeline import parse_args, generate_config,delete_associated_files
 from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment
 import srcs.load_data as ld 
 
@@ -38,13 +38,19 @@ class SegmentSuccessorAnalyzer:
                 for key in ['successor_value', 'phash_threshold']}
 
     def run(self, video_files: List[str], thresholds: Dict[str, Optional[float]], keyframe_files: List[str], save_dir: str) -> Tuple[List[np.ndarray], List[float]]:
-        # Use stored thresholds if none are provided
+        args = parse_args()
+        config = {
+            "local": generate_config("./datasets"),
+        }
+        selected_config = config[args.mode]
         thresholds = thresholds or self.thresholds
         config_params = ld.read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
-        # Check for edge cases
         if len(frame_embedding_pairs) < 2:
-            print(f"Insufficient number of frame embeddings for {video_files}. Skipping analysis.")
+            print(f"No frame embeddings found for {video_files}. Deleting associated files.")
+            for video_file in video_files:
+                video_id = int(os.path.basename(video_file).split('.')[0])
+                delete_associated_files(video_id, selected_config)
             return [], []
         try:
             temporal_embeddings = np.array([emb for _, emb in frame_embedding_pairs])
@@ -109,11 +115,9 @@ class SegmentSuccessorAnalyzer:
                 scale_factor = min(max_fig_width / fig_width, max_fig_height / fig_height)
                 fig_width, fig_height = scale_factor * fig_width, scale_factor * fig_height
             fig, axes = plt.subplots(num_rows, num_cols, figsize=(fig_width, fig_height))
-
             if num_frames == 1:
                 axes = np.array([[axes]])
             flat_axes = axes.flatten()
-
             for i, ax in enumerate(flat_axes[:num_frames]):
                 frame, _ = frame_embedding_pairs[i]
                 if is_clear_image(frame):
@@ -123,14 +127,11 @@ class SegmentSuccessorAnalyzer:
                     annotate_plot(ax, idx=i, successor_sim=successor_distance, distances=distances,
                                   global_frame_start_idx=0, window_idx=i,
                                   segment_label=f"Segment {segment_counter}", timestamp=timestamps[i])
-
             for ax in flat_axes[num_frames:]:
                 ax.axis('off')
             plt.tight_layout()
             plt_path = os.path.join(save_dir, 'keyframes_grid.png')
             plt.savefig(plt_path)
-
-        # This part will run regardless of the plot_grid flag
         segment_counter = 0
         for i, (frame, _) in enumerate(frame_embedding_pairs):
             if is_clear_image(frame):

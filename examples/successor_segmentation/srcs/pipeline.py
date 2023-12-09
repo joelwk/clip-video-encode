@@ -35,7 +35,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Pipeline Configuration')
     parser.add_argument('--mode', type=str, default='local', help='Execution mode: local or cloud')
     return parser.parse_args()
-
+    
 def generate_config(base_directory):
     return {
         "directory": base_directory,
@@ -46,6 +46,23 @@ def generate_config(base_directory):
         "keyframe_parquet": f"{base_directory}/keyframe_video_requirements.parquet",
         "config_yaml": f"{base_directory}/config.yaml"
     }
+
+def delete_associated_files(video_id: int, config):
+    try:
+        file_paths = [
+            f"{config['directory']}/originalvideos/{video_id}.m4a",
+            f"{config['directory']}/keyframes/{video_id}.mp4",
+            f"{config['directory']}/keyframeembeddings/{video_id}.json",
+            f"{config['directory']}/originalembeddings/{video_id}.npy"
+        ]
+        for file_path in file_paths:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Deleted file: {file_path}")
+            else:
+                print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"Error in deleting files for video ID {video_id}: {e}")
 
 def create_directories(config):
     for key, path in config.items():
@@ -93,7 +110,7 @@ def main():
 
         modify_requirements_txt(f"{video2dataset_path}/requirements.txt", target_packages)
         with open(f"{video2dataset_path}/requirements.txt", "a") as f:
-            f.write("imagehash>=4.3.1\n")
+            f.write("imagehash>=4.3.1\ndatasets<=4.30.2\n")
         status = install_local_package(video2dataset_path)
         if status and status != 0:
             return status

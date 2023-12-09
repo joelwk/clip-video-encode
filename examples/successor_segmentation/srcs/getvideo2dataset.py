@@ -8,33 +8,44 @@ import argparse
 import shutil
 import sys
 import ffmpeg
-from srcs.pipeline import generate_config, install_local_package
+from srcs.pipeline import generate_config, install_local_package, parse_args
 import cv2
+from datasets import load_dataset
+from srcs.load_data import read_config
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Pipeline Configuration')
-    parser.add_argument('--mode', type=str, default='local', help='Execution mode: local or cloud')
-    return parser.parse_args()
-
-args = parse_args()
-config = {
-    "local": generate_config("./datasets")}
-selected_config = config[args.mode]
-
-def prepare_dataset_requirements(directory, external_parquet_path=None):
+def prepare_dataset_requirements(directory, external_parquet_path=None, hf_dataset=None, duration_limit=None):
+    os.makedirs(directory, exist_ok=True)
     if external_parquet_path:
         # If an external Parquet file is provided, copy it to the directory
         shutil.copy(external_parquet_path, f"{directory}/dataset_requirements.parquet")
+    elif hf_dataset:
+        # If an HF dataset is specified, load and convert it to Parquet
+        hf_dataset = load_dataset(hf_dataset)
+        df = pd.DataFrame(hf_dataset['train']).rename(columns={'link':'url','title':'caption'})
+        # Convert duration from "HH:MM:SS" or "MM:SS" to total seconds and apply duration limit
+        if duration_limit and 'duration' in df.columns:
+            def convert_duration(duration_str):
+                try:
+                    parts = duration_str.split(':')
+                    if len(parts) == 3:
+                        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                    elif len(parts) == 2:
+                        return int(parts[0]) * 60 + int(parts[1])
+                    return 0  # Default to 0 if format is incorrect
+                except AttributeError:
+                    return 0  # Default to 0 in case of conversion error
+            df['duration_seconds'] = df['duration'].apply(convert_duration)
+            df = df[df['duration_seconds'] <= duration_limit * 60]  # Apply duration limit
+            df.sample(5).to_parquet(f"{directory}/dataset_requirements.parquet", index=False)
     else:
-        # Otherwise, create a new Parquet file from the default JSON data
-        dataset_requirements = {
+        # Otherwise, create a new Parquet file from the default data
+        default_data = {
             "data": [
                 {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"},
                 {"url": "www.youtube.com/watch?v=pYbbyuqv86Q", "caption": "Hate Speech is a marketing campaign for censorship"},
             ]
         }
-        os.makedirs(directory, exist_ok=True)
-        df = pd.DataFrame(dataset_requirements['data'])
+        df = pd.DataFrame(default_data['data'])
         df.to_parquet(f"{directory}/dataset_requirements.parquet", index=False)
 
 def load_dataset_requirements(directory):
@@ -85,7 +96,6 @@ def fix_codecs_in_directory(directory):
         input_file_path = video_file 
         output_file_path = os.path.join(directory, f"fixed_{video_id}.mp4")
         try:
-            # The next line assumes that ffmpeg has an 'input' function. If not, AttributeError will be caught.
             ffmpeg.input(input_file_path).output(output_file_path, vcodec='libx264', strict='-2', loglevel="quiet").overwrite_output().run(capture_stdout=True, capture_stderr=True)
             print(f"Successfully re-encoded {video_file}")
             os.remove(input_file_path)
@@ -120,13 +130,12 @@ def save_metadata_to_parquet(keyframe_video_locs, original_video_locs, directory
     keyframe_video_df.to_parquet(f'{directory}/keyframe_video_requirements.parquet', index=False)
     original_video_df.to_parquet(f'{directory}/original_video_requirements.parquet', index=False)
 
-def prepare_clip_encode(directory, output):
+def prepare_clip_encode(directory, output,original_videos):
     dataset_requirements = load_dataset_requirements(directory)
     df = pd.DataFrame(dataset_requirements)
-
-    video_files = glob.glob(f"{selected_config['original_videos']}/**/*.mp4", recursive=True)
+    video_files = glob.glob(f"{original_videos}/**/*.mp4", recursive=True)
     keyframe_video_locs, original_video_locs = collect_video_metadata(video_files, output)
-    save_metadata_to_parquet(keyframe_video_locs, original_video_locs, selected_config["directory"])
+    save_metadata_to_parquet(keyframe_video_locs, original_video_locs, directory)
 
 def run_video2dataset_with_yt_dlp(directory, output):
     os.makedirs(output, exist_ok=True)
@@ -148,16 +157,18 @@ def run_video2dataset_with_yt_dlp(directory, output):
         print("STDOUT:", result.stdout)
         
 def main(mode='local'):
+    args = parse_args()
     config = {
-        "local": generate_config("./datasets")
-    }
-    selected_config = config[mode]
-
-    prepare_dataset_requirements(selected_config["directory"])
+        "local": generate_config("./datasets")}
+    selected_config = config[args.mode]
+    directories = read_config(section="directory")
+    thresholds = read_config(section="thresholds")
+    duration_limit = thresholds['duration_limit']
+    prepare_dataset_requirements(selected_config["directory"], hf_dataset = directories['hf_dataset'], duration_limit = float(duration_limit))
     run_video2dataset_with_yt_dlp(selected_config["directory"], selected_config["original_videos"])
     fix_codecs_in_directory(selected_config["original_videos"])
     segment_key_frames_in_directory(selected_config["original_videos"], selected_config["keyframe_videos"])
-    prepare_clip_encode(selected_config["directory"], selected_config["keyframe_videos"])
+    prepare_clip_encode(selected_config["directory"], selected_config["keyframe_videos"],selected_config["original_videos"])
     install_local_package('./clip-video-encode')
     exit_status = 0 
     print(f"Exiting {__name__} with status {exit_status}")

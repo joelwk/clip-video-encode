@@ -9,8 +9,9 @@ from sklearn.preprocessing import normalize
 from PIL import Image
 from imagehash import phash
 from typing import List, Tuple, Union, Optional,Dict
-
+from srcs.pipeline import delete_associated_files, parse_args, generate_config
 import srcs.load_data as ld
+from srcs.load_data import read_config
 
 def read_thresholds_config(section: str = 'thresholds') -> dict:
     params = ld.read_config(section=section)
@@ -71,6 +72,11 @@ def calculate_video_frame_phash_similarity(frame1: np.ndarray,
 def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: List[str],
                                       embedding_values: List[np.ndarray], 
                                       thresholds: Dict[str, Optional[float]]) -> Tuple[List[Tuple[np.ndarray, np.ndarray]], List[float]]:
+    args = parse_args()
+    config = {
+        "local": generate_config("./datasets"),
+    }
+    selected_config = config[args.mode]
     frame_embedding_pairs = []
     timestamps = []
     total_duration = ld.get_video_duration(video_files)
@@ -90,7 +96,12 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
         frames = [frame for frame, _ in frame_embedding_pairs]
         filtered_timestamps = filter_keyframes_based_on_phash(frames, timestamps, thresholds)
         frame_embedding_pairs = [(frame, emb) for frame, emb, ts in zip(frames, embedding_values, timestamps) if ts in filtered_timestamps]
-        timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
+    if len(frame_embedding_pairs) == 0:
+        video_id = int(os.path.basename(vid_path).split('.')[0])
+        delete_associated_files(video_id, selected_config)
+        print(f"No keyframes remaining after filtering for video ID {video_id}. Associated files deleted.")
+        return [], []
+    timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
     # Check to ensure lengths match
     if len(frame_embedding_pairs) != len(timestamps):
         print("Mismatch in the number of frames and timestamps after filtering.")
