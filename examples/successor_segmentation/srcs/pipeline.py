@@ -50,10 +50,16 @@ def generate_config(base_directory):
 def delete_associated_files(video_id: int, config):
     try:
         file_paths = [
-            f"{config['directory']}/originalvideos/{video_id}.m4a",
-            f"{config['directory']}/keyframes/{video_id}.mp4",
-            f"{config['directory']}/keyframeembeddings/{video_id}.json",
-            f"{config['directory']}/originalembeddings/{video_id}.npy"
+            f"./{config['directory']}/originalvideos/{video_id}.m4a",
+            f"./{config['directory']}/originalvideos/{video_id}.mp4",
+            f"./{config['directory']}/originalvideos/{video_id}.json",
+
+             f"./{config['directory']}/keyframeembeddings/{video_id}.json",
+             f"./{config['directory']}/keyframeembeddings/{video_id}.npy",
+
+            f"./{config['directory']}/keyframes/{video_id}.mp4",
+            f"./output/keyframes/{video_id}",
+            f"./output/keyframe_audio_clip/{video_id}",
         ]
         for file_path in file_paths:
             if os.path.exists(file_path):

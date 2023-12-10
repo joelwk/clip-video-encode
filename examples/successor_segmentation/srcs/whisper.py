@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 def read_keyframe_data(keyframe_json_path):
     with open(keyframe_json_path, 'r') as file:
         return json.load(file)
-        
+
 def install_requirements():
     try:
         import torch
@@ -19,6 +19,7 @@ def install_requirements():
         import transformers
     except ImportError:
         print("Installing required packages and restarting...")
+        subprocess.run(["pip", "install", "upgrade", "transformers"])
         subprocess.run(["pip", "install", "torch", "torchvision", "torchaudio"])
         subprocess.run(["pip", "install", "accelerate", "optimum"])
         subprocess.run(["pip", "install", "ipython-autotime"])
@@ -132,6 +133,7 @@ def full_audio_transcription_pipeline(audio_path, output_dir):
         print(f"Error in full_audio_transcription_pipeline: {e}")
         
 def process_audio_files():
+    install_requirements()
     directories = read_config(section="evaluations")
     config_params = read_config(section="config_params")
     try:
