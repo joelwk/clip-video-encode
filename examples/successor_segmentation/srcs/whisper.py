@@ -23,7 +23,6 @@ def install_requirements():
         subprocess.run(["pip", "install", "accelerate", "optimum"])
         subprocess.run(["pip", "install", "ipython-autotime"])
         subprocess.run(["pip", "install", "pydub"])
-        subprocess.run(["pip", "install", "--upgrade","transformers"])
 
 install_requirements()
 import torch
