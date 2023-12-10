@@ -101,9 +101,9 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
         delete_associated_files(video_id, selected_config)
         print(f"No keyframes remaining after filtering for video ID {video_id}. Associated files deleted.")
         return [], []
-    timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
     # Check to ensure lengths match
     if len(frame_embedding_pairs) != len(timestamps):
         print("Mismatch in the number of frames and timestamps after filtering.")
+    timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
     return frame_embedding_pairs, timestamps
 
