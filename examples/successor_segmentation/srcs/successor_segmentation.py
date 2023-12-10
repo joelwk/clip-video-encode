@@ -20,12 +20,10 @@ import srcs.load_data as ld
 class SegmentSuccessorAnalyzer:
     def __init__(self, total_duration: float, embedding_values: np.ndarray, thresholds: Dict[str, Optional[float]],
                  max_segment_duration: Optional[int] = None) -> None:
-        # Validate types
         if not isinstance(total_duration, float):
             raise TypeError("total_duration must be a float.")
         if not isinstance(embedding_values, np.ndarray):
             raise TypeError("embedding_values must be a numpy array.")
-        # Read and store thresholds from config
         self.thresholds = self.read_thresholds_config()
         self.embedding_values = embedding_values
         self.total_duration = total_duration
@@ -38,19 +36,15 @@ class SegmentSuccessorAnalyzer:
                 for key in ['successor_value', 'phash_threshold']}
 
     def run(self, video_files: List[str], thresholds: Dict[str, Optional[float]], keyframe_files: List[str], save_dir: str) -> Tuple[List[np.ndarray], List[float]]:
-        args = parse_args()
-        config = {
-            "local": generate_config("./datasets"),
-        }
-        selected_config = config[args.mode]
         thresholds = thresholds or self.thresholds
+        directories = ld.read_config(section="directory")
         config_params = ld.read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
         if len(frame_embedding_pairs) < 2:
             print(f"No frame embeddings found for {video_files}. Deleting associated files.")
             for video_file in video_files:
                 video_id = int(os.path.basename(video_file).split('.')[0])
-                delete_associated_files(video_id, selected_config)
+                delete_associated_files(video_id, directories)
             return [], []
         try:
             temporal_embeddings = np.array([emb for _, emb in frame_embedding_pairs])
@@ -67,10 +61,9 @@ class SegmentSuccessorAnalyzer:
         if self.max_segment_duration is None:
             return initial_new_segments
         new_segments = [initial_new_segments[0]]
-        last_timestamp = timestamps[new_segments[0]]  # Initialize with the timestamp of the first segment
+        last_timestamp = timestamps[new_segments[0]]
         for i in range(0, len(initial_new_segments)):
             if i == 0:
-                # Special handling for the first element
                 new_segments.append(initial_new_segments[i])
                 last_timestamp = timestamps[initial_new_segments[i]]
                 continue
@@ -82,7 +75,7 @@ class SegmentSuccessorAnalyzer:
                     last_timestamp = timestamps[acceptable_frame]
             if initial_new_segments[i] not in new_segments:
                 new_segments.append(initial_new_segments[i])
-                last_timestamp = timestamps[initial_new_segments[i]]  # Update last_timestamp
+                last_timestamp = timestamps[initial_new_segments[i]]
         return new_segments
 
     def find_acceptable_frame(self, intervening_frames, timestamps, last_timestamp):
@@ -97,10 +90,8 @@ class SegmentSuccessorAnalyzer:
         if len(frame_embedding_pairs) != len(timestamps):
             print("Mismatch in the number of frames and timestamps. Exiting save_keyframes.")
             return
-
         keyframe_data = {}
         segment_counter = 0
-
         if plot_grid:
             num_frames = len(frame_embedding_pairs)
             num_cols = 4
@@ -108,7 +99,6 @@ class SegmentSuccessorAnalyzer:
             if num_rows <= 0 or num_cols <= 0:
                 print("Invalid grid dimensions. Skipping grid plotting.")
                 return
-
             max_fig_width, max_fig_height = 16000, 16000 
             fig_width, fig_height = 4 * num_cols, 4 * num_rows
             if fig_width > max_fig_width or fig_height > max_fig_height:
@@ -143,9 +133,7 @@ class SegmentSuccessorAnalyzer:
                 keyframe_data[i] = {
                     'index': i,
                     'time_frame': timestamps[i],
-                    'filename': individual_keyframe_filename
-                }
-
+                    'filename': individual_keyframe_filename}
         json_path = os.path.join(save_dir, 'keyframe_data.json')
         with open(json_path, 'w') as f:
             json.dump(keyframe_data, f)

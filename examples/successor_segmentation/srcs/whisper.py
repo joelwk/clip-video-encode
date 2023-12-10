@@ -13,20 +13,18 @@ def read_keyframe_data(keyframe_json_path):
         return json.load(file)
 
 def install_requirements():
-    try:
-        import torch
-        import pydub
-        import transformers
-    except ImportError:
-        print("Installing required packages and restarting...")
-        subprocess.run(["pip", "install", "upgrade", "transformers"])
-        subprocess.run(["pip", "install", "torch", "torchvision", "torchaudio"])
-        subprocess.run(["pip", "install", "accelerate", "optimum"])
-        subprocess.run(["pip", "install", "ipython-autotime"])
-        subprocess.run(["pip", "install", "pydub"])
-
+    required_packages = [
+        "torch", "torchvision", "torchaudio", 
+        "accelerate", "optimum", "ipython-autotime", 
+        "pydub", "transformers"
+    ]
+    for package in required_packages:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            print(f"Installed {package}")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to install {package}: {e}")
 install_requirements()
-
 import torch
 from pydub import AudioSegment
 from transformers import pipeline
@@ -99,8 +97,7 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
                 segment_info = {
                     'segment_idx': idx,
                     'timestamp': [start_time_ms / 1000, end_time_ms / 1000],  
-                    'text': transcript
-                }
+                    'text': transcript}
                 output_aligned_final.append(segment_info)
                 
         # Save the results to a JSON file

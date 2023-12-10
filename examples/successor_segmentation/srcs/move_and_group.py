@@ -52,18 +52,24 @@ def move_and_group_files(directories):
             shutil.move(file_path, new_file_path)
             print(f"Moved {file_path} to {new_file_path}")
 
-def cleanup_unwanted_dirs(directory, unwanted_dirs):
-    # Loop through each unwanted directory and remove it
-    for unwanted_dir in unwanted_dirs:
-        path_to_remove = os.path.join(directory, unwanted_dir)
-        if os.path.exists(path_to_remove):
-            shutil.rmtree(path_to_remove)
-            print(f"Removed {path_to_remove}")
+def cleanup_unwanted_dirs(directory, unwanted_dirs=None):
+    if unwanted_dirs:
+        for unwanted_dir in unwanted_dirs:
+            path_to_remove = os.path.join(directory, unwanted_dir)
+            if os.path.exists(path_to_remove):
+                shutil.rmtree(path_to_remove)
+                print(f"Removed {path_to_remove}")
+    else:
+        if os.path.exists(directory):
+            shutil.rmtree(directory)
+            print(f"Removed entire directory: {directory}")
 
 def main():
-    directories = read_config(section="directory")
+    directories = read_config()
     move_and_group_files(directories)
     cleanup_unwanted_dirs('./completedatasets', ['00000_stats', '00000'])
+    cleanup_unwanted_dirs(directories['output'])  
+    cleanup_unwanted_dirs(directories['base_directory'])  
 
 if __name__ == "__main__":
     main()

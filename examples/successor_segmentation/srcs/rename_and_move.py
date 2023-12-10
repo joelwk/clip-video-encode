@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import re
+from srcs.load_data import read_config
 
 def rename_and_move_files(src_directory, dest_directory, regex_pattern=None):
     # Get all files in the source directory
@@ -11,6 +12,7 @@ def rename_and_move_files(src_directory, dest_directory, regex_pattern=None):
         sorted_files = sorted(files, key=lambda x: int(re.search(regex_pattern, os.path.basename(x)).group(1)) if re.search(regex_pattern, os.path.basename(x)) else 0)
     else:
         sorted_files = sorted(files, key=lambda x: int(os.path.basename(x).split('.')[0]))
+        
     # Initialize a dictionary to keep track of the new integer values
     new_integer_values = {}
     # Rename and move the files
@@ -31,12 +33,13 @@ def rename_and_move_files(src_directory, dest_directory, regex_pattern=None):
         print(f"Moved and renamed {old_file} to {new_file}")
 
 def main():
+    directories = read_config()
     # Rename and move all files from the originalvideos/00000 directory to originalvideos/
-    rename_and_move_files("./datasets/originalvideos/00000", "./datasets/originalvideos")
+    rename_and_move_files(f"{directories['keyframes']}/00000", directories['keyframes'])
     # Rename all files in the keyframes directory
-    rename_and_move_files("./datasets/keyframes", "./datasets/keyframes", regex_pattern=r'(\d+)_key_frames')
+    rename_and_move_files(directories['keyframes'], directories['keyframes'], regex_pattern=r'(\d+)_key_frames')
     # Rename all files in the keyframeembeddings directory
-    rename_and_move_files("./datasets/keyframeembeddings", "./datasets/keyframeembeddings")
+    rename_and_move_files(directories['embeddings'], directories['embeddings'])
 
 if __name__ == "__main__":
     main()

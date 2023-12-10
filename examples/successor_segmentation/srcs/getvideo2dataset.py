@@ -22,7 +22,6 @@ def prepare_dataset_requirements(directory, external_parquet_path=None, hf_datas
         # If an HF dataset is specified, load and convert it to Parquet
         hf_dataset = load_dataset(hf_dataset)
         df = pd.DataFrame(hf_dataset['train']).rename(columns={'link':'url','title':'caption'})
-        # Convert duration from "HH:MM:SS" or "MM:SS" to total seconds and apply duration limit
         if duration_limit and 'duration' in df.columns:
             def convert_duration(duration_str):
                 try:
@@ -156,25 +155,20 @@ def run_video2dataset_with_yt_dlp(directory, output):
         print("Return code:", result.returncode)
         print("STDOUT:", result.stdout)
         
-def main(mode='local'):
-    args = parse_args()
-    config = {
-        "local": generate_config("./datasets")}
-    selected_config = config[args.mode]
+def main():
     directories = read_config(section="directory")
     thresholds = read_config(section="thresholds")
     duration_limit = thresholds['duration_limit']
-    prepare_dataset_requirements(selected_config["directory"], hf_dataset = directories['hf_dataset'], duration_limit = float(duration_limit))
-    run_video2dataset_with_yt_dlp(selected_config["directory"], selected_config["original_videos"])
-    fix_codecs_in_directory(selected_config["original_videos"])
-    segment_key_frames_in_directory(selected_config["original_videos"], selected_config["keyframe_videos"])
-    prepare_clip_encode(selected_config["directory"], selected_config["keyframe_videos"],selected_config["original_videos"])
+    prepare_dataset_requirements(directories["base_directory"], hf_dataset = directories['hf_dataset'], duration_limit = float(duration_limit))
+    run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
+    fix_codecs_in_directory(directories["originalframes"])
+    segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
+    prepare_clip_encode(directories["base_directory"], directories["keyframes"],directories["originalframes"])
     install_local_package('./clip-video-encode')
     exit_status = 0 
     print(f"Exiting {__name__} with status {exit_status}")
     return exit_status
 
 if __name__ == "__main__":
-    args = parse_args()
-    exit_status = main(mode=args.mode)
+    exit_status = main()
     sys.exit(exit_status)

@@ -4,6 +4,7 @@ import sys
 import subprocess
 import argparse
 from contextlib import contextmanager
+from srcs.load_data import read_config
 
 @contextmanager
 def change_directory(destination):
@@ -43,23 +44,22 @@ def generate_config(base_directory):
         "keyframe_videos": f"{base_directory}/keyframes",
         "embedding_output": f"{base_directory}/originalembeddings",
         "keyframe_embedding_output": f"{base_directory}/keyframeembeddings",
-        "keyframe_parquet": f"{base_directory}/keyframe_video_requirements.parquet",
         "config_yaml": f"{base_directory}/config.yaml"
     }
 
 def delete_associated_files(video_id: int, config):
     try:
         file_paths = [
-            f"./{config['directory']}/originalvideos/{video_id}.m4a",
-            f"./{config['directory']}/originalvideos/{video_id}.mp4",
-            f"./{config['directory']}/originalvideos/{video_id}.json",
+            f"./{config['originalframes']}/{video_id}.m4a",
+            f"./{config['originalframes']}/{video_id}.mp4",
+            f"./{config['originalframes']}/{video_id}.json",
 
-             f"./{config['directory']}/keyframeembeddings/{video_id}.json",
-             f"./{config['directory']}/keyframeembeddings/{video_id}.npy",
+             f"./{config['embeddings']}/{video_id}.json",
+             f"./{config['embeddings']}/{video_id}.npy",
 
-            f"./{config['directory']}/keyframes/{video_id}.mp4",
-            f"./output/keyframes/{video_id}",
-            f"./output/keyframe_audio_clip/{video_id}",
+            f"./{config['keyframes']}/{video_id}.mp4",
+            f"./{config['keyframe_outputs']}/{video_id}",
+            f"./{config['keyframe_audio_clip_output']}/{video_id}",
         ]
         for file_path in file_paths:
             if os.path.exists(file_path):
@@ -100,9 +100,10 @@ def modify_requirements_txt(file_path, target_packages):
                 f.write(line)
 
 def main():
+    base_directory =  read_config(section="directory")
     try:
         args = parse_args()
-        config = {"local": generate_config("./datasets")}
+        config = {"local": generate_config(base_directory['base_directory'])}
         selected_config = config[args.mode]
         create_directories(selected_config)
 
