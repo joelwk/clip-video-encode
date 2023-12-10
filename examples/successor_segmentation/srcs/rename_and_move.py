@@ -33,7 +33,7 @@ def rename_and_move_files(src_directory, dest_directory, regex_pattern=None):
         print(f"Moved and renamed {old_file} to {new_file}")
 
 def main():
-    directories = read_config()
+    directories = read_config(section="directory")
     # Rename and move all files from the originalvideos/00000 directory to originalvideos/
     rename_and_move_files(f"{directories['keyframes']}/00000", directories['keyframes'])
     # Rename all files in the keyframes directory

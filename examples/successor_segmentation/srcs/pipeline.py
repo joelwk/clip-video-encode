@@ -50,13 +50,14 @@ def generate_config(base_directory):
 def delete_associated_files(video_id: int, config):
     try:
         file_paths = [
+            # remove original files from video2dataset
             f"./{config['originalframes']}/{video_id}.m4a",
             f"./{config['originalframes']}/{video_id}.mp4",
             f"./{config['originalframes']}/{video_id}.json",
-
+            # remove json and numpy files from clip-video-encode
              f"./{config['embeddings']}/{video_id}.json",
              f"./{config['embeddings']}/{video_id}.npy",
-
+            
             f"./{config['keyframes']}/{video_id}.mp4",
             f"./{config['keyframe_outputs']}/{video_id}",
             f"./{config['keyframe_audio_clip_output']}/{video_id}",
@@ -106,7 +107,6 @@ def main():
         config = {"local": generate_config(directories['base_directory'])}
         selected_config = config[args.mode]
         create_directories(selected_config)
-
         video2dataset_path = clone_repository("https://github.com/iejMac/video2dataset.git", "./repos")
         print('installing target packages')
         target_packages = {
@@ -114,7 +114,6 @@ def main():
             "pyarrow": ">=6.0.1,<8",
             "imageio-ffmpeg": ">=0.4.0,<1",
         }
-
         modify_requirements_txt(f"{video2dataset_path}/requirements.txt", target_packages)
         with open(f"{video2dataset_path}/requirements.txt", "a") as f:
             f.write("imagehash>=4.3.1\n")

@@ -29,7 +29,7 @@ def main():
     directories = read_config()
     clipencode_path = './clip-video-encode/'
     install_requirements(clipencode_path)
-    clip_encode(directories)
+    clip_encode(selected_config)
     return 0
 
 if __name__ == "__main__":

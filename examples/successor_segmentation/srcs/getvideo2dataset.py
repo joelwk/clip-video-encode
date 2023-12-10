@@ -111,7 +111,7 @@ def save_metadata_to_parquet(keyframe_video_locs, original_video_locs, directory
     keyframe_video_df.to_parquet(f'{directory}/keyframe_video_requirements.parquet', index=False)
     original_video_df.to_parquet(f'{directory}/original_video_requirements.parquet', index=False)
 
-def prepare_clip_encode(directory, output,original_videos):
+def prepare_clip_encode(directory, output, original_videos):
     dataset_requirements = load_dataset_requirements(directory)
     df = pd.DataFrame(dataset_requirements)
     video_files = glob.glob(f"{original_videos}/**/*.mp4", recursive=True)
@@ -145,7 +145,7 @@ def main():
     run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
     fix_codecs_in_directory(directories["originalframes"])
     segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
-    prepare_clip_encode(directories["base_directory"], directories["keyframes"], directories["originalframes"])
+    prepare_clip_encode(directories["base_directory"], directories["keyframes"],directories["originalframes"],)
     install_local_package('./clip-video-encode')
     exit_status = 0 
     print(f"Exiting {__name__} with status {exit_status}")
