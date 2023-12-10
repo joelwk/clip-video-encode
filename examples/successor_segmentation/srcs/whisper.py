@@ -11,19 +11,19 @@ warnings.filterwarnings("ignore", category=UserWarning)
 def read_keyframe_data(keyframe_json_path):
     with open(keyframe_json_path, 'r') as file:
         return json.load(file)
-
+        
 def install_requirements():
-    required_packages = [
-        "torch", "torchvision", "torchaudio", 
-        "accelerate", "optimum", "ipython-autotime", 
-        "pydub", "transformers"
-    ]
-    for package in required_packages:
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-            print(f"Installed {package}")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to install {package}: {e}")
+    try:
+        import torch
+        import pydub
+        import transformers
+    except ImportError:
+        print("Installing required packages and restarting...")
+        subprocess.run(["pip", "install", "torch", "torchvision", "torchaudio"])
+        subprocess.run(["pip", "install", "accelerate", "optimum"])
+        subprocess.run(["pip", "install", "ipython-autotime"])
+        subprocess.run(["pip", "install", "pydub"])
+
 install_requirements()
 import torch
 from pydub import AudioSegment
@@ -130,7 +130,6 @@ def full_audio_transcription_pipeline(audio_path, output_dir):
         print(f"Error in full_audio_transcription_pipeline: {e}")
         
 def process_audio_files():
-    install_requirements()
     directories = read_config(section="evaluations")
     config_params = read_config(section="config_params")
     try:

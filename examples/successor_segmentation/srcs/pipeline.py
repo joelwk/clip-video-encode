@@ -117,7 +117,7 @@ def main():
 
         modify_requirements_txt(f"{video2dataset_path}/requirements.txt", target_packages)
         with open(f"{video2dataset_path}/requirements.txt", "a") as f:
-            f.write("imagehash>=4.3.1\ndatasets<=4.30.2\n")
+            f.write("imagehash>=4.3.1\n")
         status = install_local_package(video2dataset_path)
         if status and status != 0:
             return status

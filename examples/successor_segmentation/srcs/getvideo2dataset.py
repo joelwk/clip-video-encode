@@ -10,32 +10,12 @@ import sys
 import ffmpeg
 from srcs.pipeline import generate_config, install_local_package, parse_args
 import cv2
-from datasets import load_dataset
 from srcs.load_data import read_config
 
-def prepare_dataset_requirements(directory, external_parquet_path=None, hf_dataset=None, duration_limit=None):
+def prepare_dataset_requirements(directory, external_parquet_path=None):
     os.makedirs(directory, exist_ok=True)
     if external_parquet_path:
-        # If an external Parquet file is provided, copy it to the directory
         shutil.copy(external_parquet_path, f"{directory}/dataset_requirements.parquet")
-    elif hf_dataset:
-        # If an HF dataset is specified, load and convert it to Parquet
-        hf_dataset = load_dataset(hf_dataset)
-        df = pd.DataFrame(hf_dataset['train']).rename(columns={'link':'url','title':'caption'})
-        if duration_limit and 'duration' in df.columns:
-            def convert_duration(duration_str):
-                try:
-                    parts = duration_str.split(':')
-                    if len(parts) == 3:
-                        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-                    elif len(parts) == 2:
-                        return int(parts[0]) * 60 + int(parts[1])
-                    return 0  # Default to 0 if format is incorrect
-                except AttributeError:
-                    return 0  # Default to 0 in case of conversion error
-            df['duration_seconds'] = df['duration'].apply(convert_duration)
-            df = df[df['duration_seconds'] <= duration_limit * 60]  # Apply duration limit
-            df.sample(5).to_parquet(f"{directory}/dataset_requirements.parquet", index=False)
     else:
         # Otherwise, create a new Parquet file from the default data
         default_data = {
@@ -100,10 +80,8 @@ def fix_codecs_in_directory(directory):
             os.remove(input_file_path)
             os.rename(output_file_path, input_file_path)
         except AttributeError as e:
-            # Handles cases where ffmpeg doesn't have 'input' or 'Error' attributes
             print(f"AttributeError: {e}. FFMPEG might not be correctly installed or imported.")
         except Exception as e:  
-            # General Exception to catch all other types of exceptions
             print(f"An unexpected error occurred: {e}")
 
 def segment_key_frames_in_directory(directory, output_directory):
@@ -140,7 +118,7 @@ def run_video2dataset_with_yt_dlp(directory, output):
     os.makedirs(output, exist_ok=True)
     url_list = f'{directory}/dataset_requirements.parquet'
     print(f"Reading URLs from: {url_list}")
-    df = pd.read_parquet(url_list)
+    df = pd.read_parquet(url_list).sample(5)
     for idx, row in df.iterrows():
         print(f"Processing video {idx+1}: {row['url']}")
         command = [
@@ -159,11 +137,11 @@ def main():
     directories = read_config(section="directory")
     thresholds = read_config(section="thresholds")
     duration_limit = thresholds['duration_limit']
-    prepare_dataset_requirements(directories["base_directory"], hf_dataset = directories['hf_dataset'], duration_limit = float(duration_limit))
+    prepare_dataset_requirements(directories["base_directory"], external_parquet_path='./dataset_requirements.parquet')
     run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
     fix_codecs_in_directory(directories["originalframes"])
     segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
-    prepare_clip_encode(directories["base_directory"], directories["keyframes"],directories["originalframes"])
+    prepare_clip_encode(directories["base_directory"], directories["keyframes"], directories["originalframes"])
     install_local_package('./clip-video-encode')
     exit_status = 0 
     print(f"Exiting {__name__} with status {exit_status}")
