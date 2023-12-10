@@ -160,3 +160,8 @@ def process_audio_files():
                 full_audio_transcription_pipeline(audio_path, full_audio_clip_output_dir)
     except Exception as e:
         print(f"An exception occurred: {e}")
+        return 1  
+
+if __name__ == "__main__":
+    sys.exit(main())  
+    
