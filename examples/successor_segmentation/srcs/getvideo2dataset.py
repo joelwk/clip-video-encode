@@ -12,24 +12,28 @@ from srcs.pipeline import generate_config, install_local_package, parse_args
 import cv2
 from srcs.load_data import read_config
 
-def prepare_dataset_requirements(directory, external_parquet_path=None):
-    os.makedirs(directory, exist_ok=True)
-    if external_parquet_path:
-        shutil.copy(external_parquet_path, f"{directory}/dataset_requirements.parquet")
+def prepare_dataset_requirements():
+    directories = read_config()
+    base_directory = directories['base_directory']
+    external_parquet_path = directories.get("external_parquet", None)
+    if external_parquet_path and os.path.exists(external_parquet_path):
+        # If an external Parquet file is provided, copy it to the directory
+        shutil.copy(external_parquet_path, f"{base_directory}/dataset_requirements.parquet")
     else:
-        # Otherwise, create a new Parquet file from the default data
-        default_data = {
+        # Otherwise, create a new Parquet file from the default JSON data
+        dataset_requirements = {
             "data": [
                 {"url": "www.youtube.com/watch?v=nXBoOam5xJs", "caption": "The Deadly Portuguese Man O' War"},
                 {"url": "www.youtube.com/watch?v=pYbbyuqv86Q", "caption": "Hate Speech is a marketing campaign for censorship"},
             ]
         }
-        df = pd.DataFrame(default_data['data'])
-        df.to_parquet(f"{directory}/dataset_requirements.parquet", index=False)
+        os.makedirs(base_directory, exist_ok=True)
+        df = pd.DataFrame(dataset_requirements['data'])
+        df.to_parquet(f"{base_directory}/dataset_requirements.parquet", index=False)
 
 def load_dataset_requirements(directory):
     # Read from the Parquet file instead of the JSON file
-    return pd.read_parquet(f"{directory}/dataset_requirements.parquet").to_dict(orient='records')
+    return pd.read_parquet(f"{directory}/dataset_requirements.parquet").sample(5).to_dict(orient='records')
 
 def get_video_duration(video_file):
     vid_cap = cv2.VideoCapture(video_file)
@@ -118,7 +122,7 @@ def run_video2dataset_with_yt_dlp(directory, output):
     os.makedirs(output, exist_ok=True)
     url_list = f'{directory}/dataset_requirements.parquet'
     print(f"Reading URLs from: {url_list}")
-    df = pd.read_parquet(url_list).sample(5)
+    df = pd.read_parquet(url_list)
     for idx, row in df.iterrows():
         print(f"Processing video {idx+1}: {row['url']}")
         command = [
@@ -137,7 +141,7 @@ def main():
     directories = read_config(section="directory")
     thresholds = read_config(section="thresholds")
     duration_limit = thresholds['duration_limit']
-    prepare_dataset_requirements(directories["base_directory"], external_parquet_path='./dataset_requirements.parquet')
+    prepare_dataset_requirements()
     run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
     fix_codecs_in_directory(directories["originalframes"])
     segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
