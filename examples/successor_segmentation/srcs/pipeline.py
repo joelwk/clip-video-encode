@@ -4,6 +4,7 @@ import sys
 import subprocess
 import argparse
 from contextlib import contextmanager
+import configparser
 
 def read_config(section="directory", config_path='./clip-video-encode/examples/successor_segmentation/config.ini'):
     if not os.path.exists(config_path):

@@ -1,6 +1,7 @@
 from srcs.pipeline import read_config
 import subprocess
 import argparse
+import os
 
 def install_requirements(directory):
     req_file = os.path.join(directory, 'requirements.txt')

@@ -11,18 +11,11 @@ import ffmpeg
 from srcs.pipeline import read_config, generate_config, install_local_package, parse_args
 import cv2
 
-def prepare_dataset_requirements(directories):
-    base_directory = directories['base_directory']
-    os.makedirs(base_directory, exist_ok=True)
-    print(f"Base directory: {base_directory}")
-    
-    external_parquet_path = directories.get("external_parquet", None)
-    print(f"External Parquet path: {external_parquet_path}")
-
+def prepare_dataset_requirements(directories, external_parquet_path):
     if external_parquet_path is not None:
         # If an external Parquet file is provided, copy it to the directory
-        shutil.copy(external_parquet_path, f"{base_directory}/dataset_requirements.parquet")
-        print(f"Copied external Parquet file to {base_directory}")
+        shutil.copy(external_parquet_path, f"{directories}/dataset_requirements.parquet")
+        print(f"Copied external Parquet file to {directories}")
     else:
         # Otherwise, create a new Parquet file from the default JSON data
         dataset_requirements = {
@@ -34,7 +27,7 @@ def prepare_dataset_requirements(directories):
         df = pd.DataFrame(dataset_requirements['data'])
         print(f"DataFrame to be saved:\n{df}")
         try:
-            parquet_file_path = f"{base_directory}/dataset_requirements.parquet"
+            parquet_file_path = f"{directories}/dataset_requirements.parquet"
             df.to_parquet(parquet_file_path, index=False)
             print(f"Saved Parquet file at {parquet_file_path}")
         except Exception as e:
@@ -149,11 +142,13 @@ def run_video2dataset_with_yt_dlp(directory, output):
 def main():
     directories = read_config(section="directory")
     external_parquet = directories.get("external_parquet", None)
-    prepare_dataset_requirements(directories["base_directory"], external_parquet_path = external_parquet)
+    if external_parquet == "None":
+        external_parquet = None
+    prepare_dataset_requirements(directories["base_directory"], external_parquet)
     run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
     fix_codecs_in_directory(directories["originalframes"])
     segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
-    prepare_clip_encode(directories["base_directory"], directories["keyframes"],directories["originalframes"],)
+    prepare_clip_encode(directories["base_directory"], directories["keyframes"], directories["originalframes"])
     install_local_package('./clip-video-encode')
     exit_status = 0 
     print(f"Exiting {__name__} with status {exit_status}")
