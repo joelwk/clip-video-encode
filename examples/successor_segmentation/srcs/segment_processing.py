@@ -13,6 +13,11 @@ from srcs.pipeline import delete_associated_files, parse_args, generate_config
 import srcs.load_data as ld
 from srcs.pipeline import read_config
 
+def read_thresholds_config(section: str = 'thresholds') -> dict:
+    params = read_config(section=section)
+    return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
+        for key in ['successor_value', 'phash_threshold','max_duration']}
+
 def check_for_new_segment(distances: Union[np.ndarray, List[float]], 
                           successor_distances: Union[np.ndarray, List[float]], 
                           thresholds: Dict[str, Optional[float]]) -> List[int]:

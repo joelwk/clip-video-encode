@@ -14,29 +14,21 @@ from PIL import Image
 from imagehash import phash
 from matplotlib.patches import Rectangle
 from srcs.pipeline import parse_args, generate_config,delete_associated_files,read_config,string_to_bool
-from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment
+from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment, read_thresholds_config
 import srcs.load_data as ld 
 
 class SegmentSuccessorAnalyzer:
-    def __init__(self, total_duration: float, embedding_values: np.ndarray, thresholds: Dict[str, Optional[float]],
-                 max_segment_duration: Optional[int] = None) -> None:
+    def __init__(self, total_duration: float, embedding_values: np.ndarray, max_segment_duration: Optional[int] = None) -> None:
+        self.thresholds = read_thresholds_config(section="thresholds")
         if not isinstance(total_duration, float):
             raise TypeError("total_duration must be a float.")
         if not isinstance(embedding_values, np.ndarray):
             raise TypeError("embedding_values must be a numpy array.")
-        self.thresholds = self.read_thresholds_config()
         self.embedding_values = embedding_values
         self.total_duration = total_duration
-        self.max_segment_duration = int(self.thresholds['max_duration']) if max_segment_duration is not None else None
-
-    @staticmethod
-    def read_thresholds_config(section: str = 'thresholds') -> dict:
-        params = read_config(section=section)
-        return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
-                for key in ['successor_value', 'phash_threshold']}
-
+        self.max_segment_duration = int(self.thresholds['max_duration']) if max_segment_duration is None else max_segment_duration
+        
     def run(self, video_files: List[str], thresholds: Dict[str, Optional[float]], keyframe_files: List[str], save_dir: str) -> Tuple[List[np.ndarray], List[float]]:
-        thresholds = thresholds or self.thresholds
         directories = read_config(section="directory")
         config_params = read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
@@ -163,7 +155,7 @@ def is_clear_image(frame, lower_bound=10, upper_bound=245):
     return lower_bound < mean_intensity < upper_bound
 
 def run_analysis(analyzer_class, specific_videos=None):
-    thresholds = SegmentSuccessorAnalyzer.read_thresholds_config()  
+    thresholds = read_thresholds_config()  
     params = read_config(section="directory")
     video_ids = ld.get_all_video_ids(params['originalframes'])
     if specific_videos is not None:
@@ -190,5 +182,5 @@ def run_analysis(analyzer_class, specific_videos=None):
         keyframe_outputs = params['keyframe_outputs']
         save_dir = f"{keyframe_outputs}/{video}"
         os.makedirs(save_dir, exist_ok=True)
-        analyzer = analyzer_class(total_duration, embedding_values, thresholds)
+        analyzer = analyzer_class(total_duration, embedding_values, thresholds['max_duration'])
         analyzer.run(video_files, thresholds, key_video_files, save_dir)
