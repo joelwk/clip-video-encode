@@ -13,9 +13,9 @@ import numpy as np
 from PIL import Image
 from imagehash import phash
 from matplotlib.patches import Rectangle
-from srcs.pipeline import parse_args, generate_config,delete_associated_files
+from srcs.pipeline import parse_args, generate_config,delete_associated_files,read_config,string_to_bool
 from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment
-from srcs.pipeline import read_config as ld
+import srcs.load_data as ld 
 
 class SegmentSuccessorAnalyzer:
     def __init__(self, total_duration: float, embedding_values: np.ndarray, thresholds: Dict[str, Optional[float]],
@@ -31,14 +31,14 @@ class SegmentSuccessorAnalyzer:
 
     @staticmethod
     def read_thresholds_config(section: str = 'thresholds') -> dict:
-        params = ld.read_config(section=section)
+        params = read_config(section=section)
         return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
                 for key in ['successor_value', 'phash_threshold']}
 
     def run(self, video_files: List[str], thresholds: Dict[str, Optional[float]], keyframe_files: List[str], save_dir: str) -> Tuple[List[np.ndarray], List[float]]:
         thresholds = thresholds or self.thresholds
-        directories = ld.read_config(section="directory")
-        config_params = ld.read_config(section="config_params")
+        directories = read_config(section="directory")
+        config_params = read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
         if len(frame_embedding_pairs) < 2:
             print(f"No frame embeddings found for {video_files}. Deleting associated files.")
@@ -55,7 +55,7 @@ class SegmentSuccessorAnalyzer:
         successor_distance = calculate_successor_distance(self.embedding_values)
         initial_new_segments = check_for_new_segment(distances, successor_distance, thresholds)
         new_segments = self.calculate_new_segments(initial_new_segments, timestamps)
-        self.save_keyframes(frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir, plot_grid=ld.string_to_bool(config_params.get("plot_grid", "False")))
+        self.save_keyframes(frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir, plot_grid=string_to_bool(config_params.get("plot_grid", "False")))
 
     def calculate_new_segments(self, initial_new_segments, timestamps):
         if self.max_segment_duration is None:
@@ -164,7 +164,7 @@ def is_clear_image(frame, lower_bound=10, upper_bound=245):
 
 def run_analysis(analyzer_class, specific_videos=None):
     thresholds = SegmentSuccessorAnalyzer.read_thresholds_config()  
-    params = ld.read_config(section="directory")
+    params = read_config(section="directory")
     video_ids = ld.get_all_video_ids(params['originalframes'])
     if specific_videos is not None:
         video_ids = [vid for vid in video_ids if vid in specific_videos]

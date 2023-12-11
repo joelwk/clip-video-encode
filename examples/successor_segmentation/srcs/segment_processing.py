@@ -14,7 +14,7 @@ import srcs.load_data as ld
 from srcs.pipeline import read_config
 
 def read_thresholds_config(section: str = 'thresholds') -> dict:
-    params = ld.read_config(section=section)
+    params = read_config(section=section)
     return {key: None if params.get(key) in [None, 'None'] else float(params.get(key)) 
             for key in ['successor_value', 'phash_threshold']}
 
