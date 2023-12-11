@@ -1,8 +1,11 @@
 from srcs.load_data import read_config
-from srcs.pipeline import generate_config, install_requirements, parse_args
-import os
 import subprocess
 import argparse
+
+def install_requirements(directory):
+    req_file = os.path.join(directory, 'requirements.txt')
+    if os.path.exists(req_file):
+        subprocess.run(["pip", "install", "-r", req_file], check=True)
 
 def clip_encode(selected_config):
     from contextlib import contextmanager
@@ -26,7 +29,7 @@ def clip_encode(selected_config):
     )
 
 def main():
-    directories = read_config()
+    directories = read_config(section="directory")
     clipencode_path = './clip-video-encode/'
     install_requirements(clipencode_path)
     clip_encode(directories)

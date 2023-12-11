@@ -113,6 +113,7 @@ def main():
             "pandas": ">=1.1.5,<2",
             "pyarrow": ">=6.0.1,<8",
             "imageio-ffmpeg": ">=0.4.0,<1",
+            "transformers": ">=4.35.0",
         }
         modify_requirements_txt(f"{video2dataset_path}/requirements.txt", target_packages)
         with open(f"{video2dataset_path}/requirements.txt", "a") as f:

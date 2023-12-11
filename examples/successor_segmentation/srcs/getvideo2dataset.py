@@ -12,11 +12,13 @@ from srcs.pipeline import generate_config, install_local_package, parse_args
 import cv2
 from srcs.load_data import read_config
 
-def prepare_dataset_requirements():
-    directories = read_config()
+def prepare_dataset_requirements(directories):
     base_directory = directories['base_directory']
+    os.makedirs(base_directory, exist_ok=True)
+    print(base_directory)
     external_parquet_path = directories.get("external_parquet", None)
-    if external_parquet_path and os.path.exists(external_parquet_path):
+    print(external_parquet_path)
+    if external_parquet_path:
         # If an external Parquet file is provided, copy it to the directory
         shutil.copy(external_parquet_path, f"{base_directory}/dataset_requirements.parquet")
     else:
@@ -27,13 +29,15 @@ def prepare_dataset_requirements():
                 {"url": "www.youtube.com/watch?v=pYbbyuqv86Q", "caption": "Hate Speech is a marketing campaign for censorship"},
             ]
         }
-        os.makedirs(base_directory, exist_ok=True)
         df = pd.DataFrame(dataset_requirements['data'])
-        df.to_parquet(f"{base_directory}/dataset_requirements.parquet", index=False)
+        try:
+            df.to_parquet(f"{base_directory}/dataset_requirements.parquet", index=False)
+        except Exception as e:
+            print(f"Error while saving Parquet file: {e}")
 
 def load_dataset_requirements(directory):
     # Read from the Parquet file instead of the JSON file
-    return pd.read_parquet(f"{directory}/dataset_requirements.parquet").sample(5).to_dict(orient='records')
+    return pd.read_parquet(f"{directory}/dataset_requirements.parquet").to_dict(orient='records')
 
 def get_video_duration(video_file):
     vid_cap = cv2.VideoCapture(video_file)
@@ -139,9 +143,7 @@ def run_video2dataset_with_yt_dlp(directory, output):
         
 def main():
     directories = read_config(section="directory")
-    thresholds = read_config(section="thresholds")
-    duration_limit = thresholds['duration_limit']
-    prepare_dataset_requirements()
+    prepare_dataset_requirements(directories)
     run_video2dataset_with_yt_dlp(directories["base_directory"], directories["originalframes"])
     fix_codecs_in_directory(directories["originalframes"])
     segment_key_frames_in_directory(directories["originalframes"], directories["keyframes"])
