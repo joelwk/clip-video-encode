@@ -2,7 +2,7 @@ import os
 import glob
 import shutil
 import re
-from srcs.load_data import read_config
+from srcs.pipeline import read_config
 
 def rename_and_move_files(src_directory, dest_directory, regex_pattern=None):
     # Get all files in the source directory

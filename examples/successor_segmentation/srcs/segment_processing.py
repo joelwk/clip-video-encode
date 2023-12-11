@@ -11,7 +11,7 @@ from imagehash import phash
 from typing import List, Tuple, Union, Optional,Dict
 from srcs.pipeline import delete_associated_files, parse_args, generate_config
 import srcs.load_data as ld
-from srcs.load_data import read_config
+from srcs.pipeline import read_config
 
 def read_thresholds_config(section: str = 'thresholds') -> dict:
     params = ld.read_config(section=section)

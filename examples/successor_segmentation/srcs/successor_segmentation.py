@@ -15,7 +15,7 @@ from imagehash import phash
 from matplotlib.patches import Rectangle
 from srcs.pipeline import parse_args, generate_config,delete_associated_files
 from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment
-import srcs.load_data as ld 
+from srcs.pipeline import read_config as ld
 
 class SegmentSuccessorAnalyzer:
     def __init__(self, total_duration: float, embedding_values: np.ndarray, thresholds: Dict[str, Optional[float]],

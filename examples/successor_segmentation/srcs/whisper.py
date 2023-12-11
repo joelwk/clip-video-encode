@@ -4,7 +4,7 @@ import json
 import subprocess
 import glob
 import warnings
-from srcs.load_data import read_config, string_to_bool
+from srcs.pipeline import read_config, string_to_bool
 
 warnings.filterwarnings("ignore", category=UserWarning)
 

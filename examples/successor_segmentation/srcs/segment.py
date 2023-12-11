@@ -9,7 +9,7 @@ from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
 from srcs.fold_seams import main as fold_seams_main
 from srcs.convert_types import main as convert_types_main
 import configparser
-from srcs.load_data import read_config, string_to_bool
+from srcs.pipeline import read_config, string_to_bool
 
 ''' 
 segment_video - segment video by time stamps to output individual mp4's

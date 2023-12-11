@@ -1,7 +1,7 @@
 import os
 import glob
 import shutil
-from srcs.load_data import read_config
+from srcs.pipeline import read_config
 
 def move_and_group_files(directories):
     # Define source directories for various categories of files

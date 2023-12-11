@@ -4,7 +4,20 @@ import sys
 import subprocess
 import argparse
 from contextlib import contextmanager
-from srcs.load_data import read_config
+
+def read_config(section="directory", config_path='./clip-video-encode/examples/successor_segmentation/config.ini'):
+    if not os.path.exists(config_path):
+        print(f"Configuration file {config_path} not found.")
+        raise FileNotFoundError(config_path)
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    if section not in config.sections():
+        print(f"Section {section} not found in configuration.")
+        raise KeyError(section)
+    return {key: config[section][key] for key in config[section]}
+    
+def string_to_bool(string_value):
+    return string_value.lower() in ['true', '1', 't', 'y', 'yes', 'on']
 
 @contextmanager
 def change_directory(destination):

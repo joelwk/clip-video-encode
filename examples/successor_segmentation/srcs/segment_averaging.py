@@ -4,7 +4,7 @@ import pandas as pd
 import cv2
 import numpy as np
 from clip_video_encode import clip_video_encode
-from srcs.load_data import read_config
+from srcs.pipeline import read_config
 
 def get_video_duration(video_path):
     cap = cv2.VideoCapture(video_path)

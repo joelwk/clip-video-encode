@@ -1,4 +1,4 @@
-from srcs.load_data import read_config
+from srcs.pipeline import read_config
 import subprocess
 import argparse
 
