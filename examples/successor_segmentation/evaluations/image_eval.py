@@ -124,10 +124,12 @@ def main():
             for keyframe in keyframes:
                 if zeroshot_classifier(keyframe, str(video), os.path.join(params['outputs'], "image_evaluations"), display_image=False):
                     face_detected_in_video = True
-            if not face_detected_in_video:
+            if not face_detected_in_video:  
                 video_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
                 if os.path.exists(video_dir):
                     shutil.rmtree(video_dir)
+                    video__original_dir = os.path.join(params['completedatasets'], str(video))
+                    shutil.rmtree(video__original_dir)
                     print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
                 continue
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
