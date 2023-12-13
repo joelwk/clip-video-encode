@@ -99,29 +99,43 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
         video_output_dir = os.path.join(output_base_path, f'{video_id}')
         if not os.path.exists(video_output_dir):
             os.makedirs(video_output_dir)
+
         # Iterate through all keyframe JSON files in the video directory
         for image_json_file in glob.glob(video_dir + '/keyframe_*.json'):
-            keyframe_id = os.path.basename(image_json_file).split('_')[1]
-            print(f'Processing keyframe {keyframe_id} of video {video_id}')
-            # Construct paths for corresponding audio and vocals JSON files
-            audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_analysis.json')
-            audio_json_path_vocals = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
-            # Determine which audio file to use
-            audio_json_to_use = audio_json_path_vocals if os.path.exists(audio_json_path_vocals) else audio_json_path
-            # Combine emotions from image and audio
-            if os.path.exists(audio_json_to_use):
-                output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}.json')
-                combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
-                print(f'Combined JSON created for keyframe {keyframe_id} of video {video_id}')
-                # Copy the image file to the output directory
-                image_file_path = image_json_file.replace('.json', '.png')
-                if os.path.exists(image_file_path):
-                    shutil.copy(image_file_path, video_output_dir)
-                # Copy the audio file from the processed folder to the output directory
-                audio_file_path = audio_json_to_use.replace('_analysis.json', '.mp3')
-                if os.path.exists(audio_file_path):
-                    shutil.copy(audio_file_path, video_output_dir)
-                    print(f'Processed audio file copied for keyframe {keyframe_id} of video {video_id}')
+            # Extract keyframe id and timestamp from the file name using regex
+            match = re.search(r'keyframe_(\d+)_timestamp_([\d\.]+)\.json', os.path.basename(image_json_file))
+            if match:
+                keyframe_id = match.group(1)
+                timestamp = match.group(2)
+                print(f'Processing keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
+
+                # Construct paths for corresponding audio and vocals JSON files
+                audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_analysis.json')
+                audio_json_path_vocals = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
+
+                # Determine which audio file to use
+                audio_json_to_use = audio_json_path_vocals if os.path.exists(audio_json_path_vocals) else audio_json_path
+
+                # Combine emotions from image and audio
+                if os.path.exists(audio_json_to_use):
+                    output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}_{timestamp}.json')
+                    combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
+                    print(f'Combined JSON created for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
+
+                    # Copy the image and NPY files to the output directory
+                    image_file_path = image_json_file.replace('.json', '.png')
+                    image_npy_file_path = image_json_file.replace('.json', '_image_features.npy')
+                    if os.path.exists(image_file_path):
+                        shutil.copy(image_file_path, video_output_dir)
+                        shutil.copy(image_npy_file_path, video_output_dir)
+
+                    # Copy the audio file and NPY files from the processed folder to the output directory
+                    audio_file_path = audio_json_to_use.replace('_analysis.json', '.mp3')
+                    audio_npy_file_path = audio_json_to_use.replace('_analysis.json', '_audio_features.npy')
+                    if os.path.exists(audio_file_path):
+                        shutil.copy(audio_file_path, video_output_dir)
+                        shutil.copy(audio_npy_file_path, video_output_dir)
+                        print(f'Processed audio file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
                     
 def main():
     params = read_config(section="evaluations")

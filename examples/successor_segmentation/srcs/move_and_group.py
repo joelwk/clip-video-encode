@@ -1,7 +1,7 @@
 import os
 import glob
 import shutil
-from srcs.pipeline import read_config
+from srcs.pipeline import read_config,is_directory_empty
 
 def move_and_group_files(directories):
     # Define source directories for various categories of files
@@ -14,43 +14,46 @@ def move_and_group_files(directories):
         'keyframes': directories['keyframe_outputs'],
         'keyframe_clip_embeddings': directories['keyframe_clip_embeddings_outputs'],
     }
-
+    
     # Define the destination directory where files will be moved to
     dest_dir = './completedatasets'
     os.makedirs(dest_dir, exist_ok=True)
     # Initialize a dictionary to store integer suffixes for each category
     integer_suffixes = {}
-    # Loop through source directories and list files
+    invalid_suffixes = set()  # To track video IDs with missing/empty files
     for category, src_directory in src_dirs.items():
         for file_path in glob.glob(f"{src_directory}/*"):
             basename = os.path.basename(file_path)
-            # Skip any files that are statistics files
             if basename.endswith("_stats"):
                 continue
-            # Extract integer suffix from file name
             integer_suffix = basename.split('.')[0]
-            # For some categories, there are nested files; process them
             if category in ['keyframes', 'keyframe_clips', 'keyframe_clip_embeddings','keyframe_audio_clips']:
                 for nested_file in glob.glob(f"{file_path}/*"):
-                    if integer_suffix not in integer_suffixes:
-                        integer_suffixes[integer_suffix] = []
-                    integer_suffixes[integer_suffix].append((category, nested_file))
+                    if os.path.getsize(nested_file) == 0 or is_directory_empty(file_path):
+                        invalid_suffixes.add(integer_suffix)
+                    else:
+                        integer_suffixes.setdefault(integer_suffix, []).append((category, nested_file))
             else:
-                if integer_suffix not in integer_suffixes:
-                    integer_suffixes[integer_suffix] = []
-                integer_suffixes[integer_suffix].append((category, file_path))
-                
-    # Create destination directories and move files
+                if os.path.getsize(file_path) == 0:
+                    invalid_suffixes.add(integer_suffix)
+                else:
+                    integer_suffixes.setdefault(integer_suffix, []).append((category, file_path))
+                    
+    # Process valid files and delete invalid ones
     for integer_suffix, file_tuples in integer_suffixes.items():
-        integer_dest_dir = os.path.join(dest_dir, integer_suffix)
-        os.makedirs(integer_dest_dir, exist_ok=True)
-        for category, file_path in file_tuples:
-            category_dest_dir = os.path.join(integer_dest_dir, category)
-            os.makedirs(category_dest_dir, exist_ok=True)
-            # Move the file to the new location
-            new_file_path = os.path.join(category_dest_dir, os.path.basename(file_path))
-            shutil.move(file_path, new_file_path)
-            print(f"Moved {file_path} to {new_file_path}")
+        if integer_suffix in invalid_suffixes:
+            print(f"Deleting files for video ID {integer_suffix} due to missing or empty files.")
+            for _, file_path in file_tuples:
+                os.remove(file_path)
+        else:
+            integer_dest_dir = os.path.join(dest_dir, integer_suffix)
+            os.makedirs(integer_dest_dir, exist_ok=True)
+            for category, file_path in file_tuples:
+                category_dest_dir = os.path.join(integer_dest_dir, category)
+                os.makedirs(category_dest_dir, exist_ok=True)
+                new_file_path = os.path.join(category_dest_dir, os.path.basename(file_path))
+                shutil.move(file_path, new_file_path)
+                print(f"Moved {file_path} to {new_file_path}")
 
 def cleanup_unwanted_dirs(directory, unwanted_dirs=None):
     if unwanted_dirs:
@@ -70,6 +73,5 @@ def main():
     cleanup_unwanted_dirs('./completedatasets', ['00000_stats', '00000'])
     cleanup_unwanted_dirs(directories['output'])  
     cleanup_unwanted_dirs(directories['base_directory'])  
-
 if __name__ == "__main__":
     main()

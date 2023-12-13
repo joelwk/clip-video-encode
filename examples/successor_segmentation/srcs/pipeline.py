@@ -1,5 +1,7 @@
 import os
+import logging
 import json
+import glob
 import sys
 import subprocess
 import argparse
@@ -61,27 +63,15 @@ def generate_config(base_directory):
         "config_yaml": f"{base_directory}/config.yaml"
     }
 
-def delete_associated_files(video_id: int, config):
+def is_directory_empty(directory):
+    return not os.listdir(directory)
+
+def delete_associated_files(video_id, params):
     try:
-        file_paths = [
-            # remove original files from video2dataset
-            f"./{config['originalframes']}/{video_id}.m4a",
-            f"./{config['originalframes']}/{video_id}.mp4",
-            f"./{config['originalframes']}/{video_id}.json",
-            # remove json and numpy files from clip-video-encode
-             f"./{config['embeddings']}/{video_id}.json",
-             f"./{config['embeddings']}/{video_id}.npy",
-            
-            f"./{config['keyframes']}/{video_id}.mp4",
-            f"./{config['keyframe_outputs']}/{video_id}",
-            f"./{config['keyframe_audio_clip_output']}/{video_id}",
-        ]
-        for file_path in file_paths:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                print(f"Deleted file: {file_path}")
-            else:
-                print(f"File not found: {file_path}")
+        for directory in [params['originalframes'], params['keyframes'], params['embeddings'], params['keyframe_outputs'], params['keyframe_audio_clip_output']]:
+            for file in glob.glob(f"{directory}/*{video_id}*"):
+                os.remove(file)
+                logging.warning(f"Deleted file {file} associated with video {video_id}.")
     except Exception as e:
         print(f"Error in deleting files for video ID {video_id}: {e}")
 

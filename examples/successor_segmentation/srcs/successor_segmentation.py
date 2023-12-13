@@ -1,8 +1,9 @@
 import glob
 import json
+import shutil
+import logging
 import os
 import cv2
-import logging
 import numpy as np
 from sklearn.preprocessing import normalize
 import configparser
@@ -13,7 +14,7 @@ import numpy as np
 from PIL import Image
 from imagehash import phash
 from matplotlib.patches import Rectangle
-from srcs.pipeline import parse_args, generate_config,delete_associated_files,read_config,string_to_bool
+from srcs.pipeline import parse_args, generate_config,delete_associated_files,read_config,string_to_bool,is_directory_empty
 from srcs.segment_processing import get_segmented_and_filtered_frames, calculate_successor_distance, check_for_new_segment, read_thresholds_config
 import srcs.load_data as ld 
 
@@ -163,24 +164,29 @@ def run_analysis(analyzer_class, specific_videos=None):
     for video in video_ids:
         try:
             keyframe_embedding_files = ld.load_keyframe_embedding_files(video, params)
+            if not keyframe_embedding_files:
+                raise ValueError(f"No embedding files provided for video {video}.")
             embedding_values = ld.load_embedding_values(keyframe_embedding_files)
+            video_files = ld.load_video_files(video, params)
+            if not video_files:
+                print(f"No video files found for video: {video}. Skipping analysis.")
+                continue
+            key_video_files = ld.load_key_video_files(video, params)
+            total_duration = ld.get_video_duration(video_files)
+            save_dir = f"{params['keyframe_outputs']}/{video}"
+            os.makedirs(save_dir, exist_ok=True)
+            analyzer = analyzer_class(total_duration, embedding_values, thresholds['max_duration'])
+            analyzer.run(video_files, thresholds, key_video_files, save_dir)
+            if is_directory_empty(save_dir):
+                delete_associated_files(video, params)
+                logging.warning(f"No keyframes found for video {video}. Deleted all associated files.")
         except ValueError as e:
-            if str(e) == "No embedding files provided.":
-                logging.warning(f"Skipping video {video} due to missing embedding files.")
-                continue
-            elif str(e) == "Failed to load any arrays from embedding files.":
-                logging.warning(f"Skipping video {video} due to failure in loading arrays.")
-                continue
+            if "No embedding files provided" in str(e) or "Failed to load any arrays from embedding files" in str(e) or "No video files found for video" in str(e):
+                delete_associated_files(video, params)
+                logging.warning(f"Deleted all files associated with video {video} due to missing or failed embedding files.")
             else:
                 raise
-        video_files = ld.load_video_files(video, params)
-        if not video_files:
-            print(f"No video files found for video: {video}. Skipping analysis.")
-            continue
-        key_video_files = ld.load_key_video_files(video, params)
-        total_duration = ld.get_video_duration(video_files)
-        keyframe_outputs = params['keyframe_outputs']
-        save_dir = f"{keyframe_outputs}/{video}"
-        os.makedirs(save_dir, exist_ok=True)
-        analyzer = analyzer_class(total_duration, embedding_values, thresholds['max_duration'])
-        analyzer.run(video_files, thresholds, key_video_files, save_dir)
+    # Check if all videos are processed
+    if not video_ids:
+        print("All videos processed. Stopping script.")
+        return
