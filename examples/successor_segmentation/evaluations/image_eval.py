@@ -1,5 +1,6 @@
 from PIL import Image
 import os
+import shutil
 import json
 import subprocess
 import argparse
@@ -55,7 +56,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     # Set up the output directory for processed images
     run_output_dir = os.path.join(output_dir, video_identifier)
     os.makedirs(run_output_dir, exist_ok=True)
-
+    
     # Load and preprocess the image
     img = Image.open(image_path)
     image_preprocessed = preprocess_val(img).unsqueeze(0)
@@ -76,8 +77,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     text_score_emotions = image_features @ text_features.T
     text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
     face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
-    
-    # Check if face is detected, then proceed with displaying, printing, and saving
+
     if face_detected:
         if display_image:
             display_image_from_file(image_path)
@@ -88,13 +88,12 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
             print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
             print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
-        # Proceed with saving the image and data
+            
         filename = os.path.basename(image_path)
         filename_without_ext = filename.split('.')[0]
         filename = remove_duplicate_extension(filename)
         save_path = os.path.join(run_output_dir, filename)
         img.save(save_path)
-        # Sort and store the detection scores for faces, emotions, and valence
         sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
         sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
         sorted_emotions_scores = sort_and_store_scores(text_score_emotions[0], format_labels(labels, 'emotions'))
@@ -112,22 +111,31 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             json.dump(json_data, json_file, indent=4)
         npy_filename_base = filename_without_ext
         np.save(os.path.join(run_output_dir, npy_filename_base + '_image_features.npy'), image_features)
+        return True 
+    return False 
 
 def main():
     params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
         try:
+            face_detected_in_video = False
             keyframes = load_key_image_files(video, params)
-            audios = load_key_audio_files(video, params)
             for keyframe in keyframes:
-                zeroshot_classifier(keyframe, str(video), os.path.join(params['outputs'], "image_evaluations"), display_image=False)
+                if zeroshot_classifier(keyframe, str(video), os.path.join(params['outputs'], "image_evaluations"), display_image=False):
+                    face_detected_in_video = True
+            if not face_detected_in_video:
+                video_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
+                if os.path.exists(video_dir):
+                    shutil.rmtree(video_dir)
+                    print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
+                continue
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
             output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
             audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips", "whisper_audio_segments")
             process_keyframe_audio_pairs(image_dir, audio_dir, output_dir)
         except Exception as e:
-            print(f"Failed to process images and pair with audio for {video}: {e}")
+            print(f"Failed to process images and pair with audio for video {video}: {e}")
 
 if __name__ == '__main__':
     main()

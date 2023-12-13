@@ -87,7 +87,6 @@ def combine_emotion_scores(image_json_path, audio_json_path, output_path):
         "image name": os.path.basename(image_json_path).replace('.json', '.png'),
         "emotions": sorted_combined_emotions
     }
-    print(output_path)
     # Save to output JSON file
     with open(output_path, 'w') as file:
         json.dump(output, file, indent=4)
@@ -123,7 +122,7 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                 if os.path.exists(audio_file_path):
                     shutil.copy(audio_file_path, video_output_dir)
                     print(f'Processed audio file copied for keyframe {keyframe_id} of video {video_id}')
-
+                    
 def main():
     params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])

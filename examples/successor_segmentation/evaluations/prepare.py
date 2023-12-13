@@ -141,15 +141,16 @@ def format_labels(labels, key):
     return [label.strip() for label in labels[key].replace('\\\n', '').split(',')]
     
 def get_model_device(model):
-    # Returns the device of the first parameter of the model
     return next(model.parameters()).device
 
 def model_clip(config_path=config_path):
-    model_config = read_config('evaluations')
+    model_config = read_config('evaluations', config_path)
     model_name = model_config['model_clip']
     model_clip, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(model_name)
     tokenizer = open_clip.get_tokenizer(model_name)
     if torch.cuda.is_available():
+        if torch.cuda.device_count() > 1:
+            model_clip = torch.nn.DataParallel(model_clip)
         model_clip = model_clip.to('cuda')
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
@@ -167,7 +168,6 @@ def model_clap():
     return model_clap
 
 def prepare_audio_labels():
-    # Check if the directory and files exist
     if not os.path.exists('clap-audioset-probe/clap-probe.pkl') or not os.path.exists('clap-audioset-probe/clap-probe.csv'):
         print("Required files not found. Cloning repository...")
         subprocess.run(["git", "clone", "https://github.com/MichaelALong/clap-audioset-probe"])
@@ -210,4 +210,3 @@ def get_embeddings(model_clip, tokenizer, config_path=config_path):
     text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels_list, f"{evals['embeddings']}/text_features_orientation.npy")
     text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels_list, f"{evals['embeddings']}/text_features_if_engaged.npy")
     text_features_valence = generate_embeddings(tokenizer, model_clip, valence_list, f"{evals['embeddings']}/text_valence.npy")
-
