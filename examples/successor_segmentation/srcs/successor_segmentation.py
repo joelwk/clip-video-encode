@@ -51,25 +51,42 @@ class SegmentSuccessorAnalyzer:
         self.save_keyframes(frame_embedding_pairs, new_segments, distances, successor_distance, timestamps, save_dir, plot_grid=string_to_bool(config_params.get("plot_grid", "False")))
 
     def calculate_new_segments(self, initial_new_segments, timestamps):
-        if self.max_segment_duration is None:
-            return initial_new_segments
-        new_segments = [initial_new_segments[0]]
-        last_timestamp = timestamps[new_segments[0]]
-        for i in range(0, len(initial_new_segments)):
-            if i == 0:
-                new_segments.append(initial_new_segments[i])
-                last_timestamp = timestamps[initial_new_segments[i]]
-                continue
-            current_timestamp = timestamps[initial_new_segments[i]]
-            if (current_timestamp - last_timestamp) > self.max_segment_duration:
-                acceptable_frame = self.find_acceptable_frame(initial_new_segments[i-1:i+1], timestamps, last_timestamp)
-                if acceptable_frame not in new_segments:
-                    new_segments.append(acceptable_frame)
-                    last_timestamp = timestamps[acceptable_frame]
-            if initial_new_segments[i] not in new_segments:
-                new_segments.append(initial_new_segments[i])
-                last_timestamp = timestamps[initial_new_segments[i]]
-        return new_segments
+        try:
+            if self.max_segment_duration is None:
+                return initial_new_segments
+            new_segments = [initial_new_segments[0]]
+            last_timestamp = timestamps[new_segments[0]]
+            for i in range(0, len(initial_new_segments)):
+                if i == 0:
+                    new_segments.append(initial_new_segments[i])
+                    last_timestamp = timestamps[initial_new_segments[i]]
+                    continue
+                if i >= len(timestamps):
+                    print(f"Index {i} out of bounds for timestamps list. Skipping.")
+                    continue
+                current_timestamp = timestamps[initial_new_segments[i]]
+                if (current_timestamp - last_timestamp) > self.max_segment_duration:
+                    # Check if index is within bounds
+                    if i-1 < 0 or i+1 > len(timestamps):
+                        print(f"Index out of bounds during segment calculation at indices {i-1} and {i+1}. Skipping this segment.")
+                        continue
+                    acceptable_frame = self.find_acceptable_frame(initial_new_segments[i-1:i+1], timestamps, last_timestamp)
+                    if acceptable_frame < 0 or acceptable_frame >= len(timestamps):
+                        print(f"Acceptable frame index {acceptable_frame} out of bounds. Skipping this segment.")
+                        continue
+                    if acceptable_frame not in new_segments:
+                        new_segments.append(acceptable_frame)
+                        last_timestamp = timestamps[acceptable_frame]
+                if initial_new_segments[i] not in new_segments:
+                    new_segments.append(initial_new_segments[i])
+                    last_timestamp = timestamps[initial_new_segments[i]]
+            return new_segments
+        except IndexError as e:
+            print(f"An index error occurred: {e}.")
+            return []
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}.")
+            return []
 
     def find_acceptable_frame(self, intervening_frames, timestamps, last_timestamp):
         if intervening_frames[1] > len(timestamps):
@@ -162,6 +179,7 @@ def run_analysis(analyzer_class, specific_videos=None):
     if specific_videos is not None:
         video_ids = [vid for vid in video_ids if vid in specific_videos]
     for video in video_ids:
+        save_dir = f"{params['keyframe_outputs']}/{video}"
         try:
             keyframe_embedding_files = ld.load_keyframe_embedding_files(video, params)
             if not keyframe_embedding_files:
@@ -169,24 +187,16 @@ def run_analysis(analyzer_class, specific_videos=None):
             embedding_values = ld.load_embedding_values(keyframe_embedding_files)
             video_files = ld.load_video_files(video, params)
             if not video_files:
-                print(f"No video files found for video: {video}. Skipping analysis.")
-                continue
+                raise ValueError(f"No video files found for video {video}.")
             key_video_files = ld.load_key_video_files(video, params)
             total_duration = ld.get_video_duration(video_files)
-            save_dir = f"{params['keyframe_outputs']}/{video}"
             os.makedirs(save_dir, exist_ok=True)
             analyzer = analyzer_class(total_duration, embedding_values, thresholds['max_duration'])
             analyzer.run(video_files, thresholds, key_video_files, save_dir)
             if is_directory_empty(save_dir):
-                delete_associated_files(video, params)
-                logging.warning(f"No keyframes found for video {video}. Deleted all associated files.")
+                raise ValueError(f"No keyframes found after processing video {video}.")
         except ValueError as e:
-            if "No embedding files provided" in str(e) or "Failed to load any arrays from embedding files" in str(e) or "No video files found for video" in str(e):
-                delete_associated_files(video, params)
-                logging.warning(f"Deleted all files associated with video {video} due to missing or failed embedding files.")
-            else:
-                raise
-    # Check if all videos are processed
+            delete_associated_files(video, params)
+            logging.warning(f"Error occurred for video {video}: {e}. Deleted all associated files.")
     if not video_ids:
         print("All videos processed. Stopping script.")
-        return

@@ -7,6 +7,7 @@ import subprocess
 import argparse
 from contextlib import contextmanager
 import configparser
+import shutil
 
 def read_config(section="directory", config_path='./clip-video-encode/examples/successor_segmentation/config.ini'):
     if not os.path.exists(config_path):
@@ -68,10 +69,21 @@ def is_directory_empty(directory):
 
 def delete_associated_files(video_id, params):
     try:
-        for directory in [params['originalframes'], params['keyframes'], params['embeddings'], params['keyframe_outputs'], params['keyframe_audio_clip_output']]:
-            for file in glob.glob(f"{directory}/*{video_id}*"):
-                os.remove(file)
-                logging.warning(f"Deleted file {file} associated with video {video_id}.")
+        directories = [
+            params['originalframes'],
+            params['keyframes'],
+            params['embeddings'],
+            params['keyframe_outputs'],
+            params['keyframe_audio_clip_output']
+        ]
+        for directory in directories:
+            pattern = f"{directory}/*{video_id}*"
+            for file_path in glob.glob(pattern):
+                if os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+                elif os.path.isfile(file_path):
+                    os.remove(file_path) 
+                logging.warning(f"Deleted {file_path} associated with video {video_id}.")
     except Exception as e:
         print(f"Error in deleting files for video ID {video_id}: {e}")
 

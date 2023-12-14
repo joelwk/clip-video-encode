@@ -79,31 +79,38 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
     selected_config = config[args.mode]
     frame_embedding_pairs = []
     timestamps = []
-    total_duration = ld.get_video_duration(video_files)
-    for vid_path in keyframe_files:
-        vid_cap = cv2.VideoCapture(vid_path)
-        for emb_idx, embedding in enumerate(embedding_values):
-            vid_cap.set(cv2.CAP_PROP_POS_FRAMES, emb_idx)
-            success, frame = vid_cap.read()
-            if not success:
-                break
-            timestamp = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-            frame_embedding_pairs.append((frame, embedding))
-            timestamps.append(timestamp)
-        vid_cap.release()
-    # Apply phash filtering
-    if thresholds['phash_threshold'] is not None:
-        frames = [frame for frame, _ in frame_embedding_pairs]
-        filtered_timestamps = filter_keyframes_based_on_phash(frames, timestamps, thresholds)
-        frame_embedding_pairs = [(frame, emb) for frame, emb, ts in zip(frames, embedding_values, timestamps) if ts in filtered_timestamps]
-    if len(frame_embedding_pairs) == 0:
-        video_id = int(os.path.basename(vid_path).split('.')[0])
-        delete_associated_files(video_id, selected_config)
-        print(f"No keyframes remaining after filtering for video ID {video_id}. Associated files deleted.")
-        return [], []
-    # Check to ensure lengths match
-    if len(frame_embedding_pairs) != len(timestamps):
-        print("Mismatch in the number of frames and timestamps after filtering.")
-    timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
-    return frame_embedding_pairs, timestamps
 
+    try:
+        total_duration = ld.get_video_duration(video_files)
+        for vid_path in keyframe_files:
+            video_id = int(os.path.basename(vid_path).split('.')[0])
+            vid_cap = cv2.VideoCapture(vid_path)
+            for emb_idx, embedding in enumerate(embedding_values):
+                vid_cap.set(cv2.CAP_PROP_POS_FRAMES, emb_idx)
+                success, frame = vid_cap.read()
+                if not success:
+                    break
+                timestamp = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                frame_embedding_pairs.append((frame, embedding))
+                timestamps.append(timestamp)
+            vid_cap.release()
+            
+        # Apply phash filtering
+        if thresholds['phash_threshold'] is not None:
+            frames = [frame for frame, _ in frame_embedding_pairs]
+            filtered_timestamps = filter_keyframes_based_on_phash(frames, timestamps, thresholds)
+            frame_embedding_pairs = [(frame, emb) for frame, emb, ts in zip(frames, embedding_values, timestamps) if ts in filtered_timestamps]
+        if len(frame_embedding_pairs) == 0:
+            delete_associated_files(video_id, selected_config)
+            print(f"No keyframes remaining after filtering for video ID {video_id}. Associated files deleted.")
+            return [], []
+        # Check to ensure lengths match
+        if len(frame_embedding_pairs) != len(timestamps):
+            delete_associated_files(video_id, selected_config)
+            print("Mismatch in the number of frames and timestamps after filtering.")
+        timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
+        return frame_embedding_pairs, timestamps
+    except Exception as e:
+        delete_associated_files(video_id, selected_config)
+        print(f"An error occurred during processing: {e}. Associated files for video ID {video_id} have been deleted.")
+        return [], []
