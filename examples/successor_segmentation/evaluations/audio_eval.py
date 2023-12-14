@@ -129,35 +129,40 @@ def find_and_move_highest_scoring_files(json_dir, processed_dir):
             processed_clips.add(clip_id)
 
 def zeroshot_classifier_audio(output_dir):
-    params = read_config(section="evaluations")
-    labels = read_config("labels")
-    model = model_clap()
-    multioutput_model, model_order_to_group_name, dfmetrics = prepare_audio_labels()
-    audio_files, np_embeddings = get_audio_embeddings(output_dir, model)
-    all_probs = multioutput_model.predict_proba(np_embeddings)
-    all_probs = np.squeeze(np.dstack(all_probs)[:, 1, :])
-    all_preds = np.empty_like(all_probs, dtype=np.int8)
-    for _, row in dfmetrics.iterrows():
-        order = row["model_order"]
-        threshold = row["threshold"]
-        all_preds[:, order] = (all_probs[:, order] >= float(params['audio_threshold'])).astype(np.int8)
-    for i, input_file in enumerate(audio_files):
-        detections = np.where(all_preds[i, :])[0]
-        groups_detected = [model_order_to_group_name[x] for x in detections]
-        file_name = os.path.basename(input_file)
-        file_name = remove_duplicate_extension(file_name)
-        filename_without_ext = file_name.split('.')[0]
-        save_path = os.path.join(output_dir, filename_without_ext)
-        audio_classification = {group: float(all_probs[i, idx]) for idx, group in enumerate(model_order_to_group_name.values())}
-        sorted_audio_classification = dict(sorted(audio_classification.items(), key=lambda item: item[1], reverse=True))
-        json_data = {
-            "audio_path": file_name,
-            "audio_classification": sorted_audio_classification}
-        json_filename = filename_without_ext + '.json'
-        with open(os.path.join(output_dir, json_filename), 'w') as json_file:
-            json.dump(json_data, json_file, indent=4)
-        npy_filename_base = filename_without_ext
-        np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
+    try:
+        params = read_config(section="evaluations")
+        model = model_clap()
+        multioutput_model, model_order_to_group_name, dfmetrics = prepare_audio_labels()
+        audio_files, np_embeddings = get_audio_embeddings(output_dir, model)
+        if np_embeddings is None or not np_embeddings.any():
+            print("No audio embeddings found.")
+            return
+        all_probs = multioutput_model.predict_proba(np_embeddings)
+        all_probs = np.squeeze(np.dstack(all_probs)[:, 1, :])
+        all_preds = np.empty_like(all_probs, dtype=np.int8)
+        for _, row in dfmetrics.iterrows():
+            order = row["model_order"]
+            threshold = row["threshold"]
+            all_preds[:, order] = (all_probs[:, order] >= float(params['audio_threshold'])).astype(np.int8)
+        for i, input_file in enumerate(audio_files):
+            detections = np.where(all_preds[i, :])[0]
+            groups_detected = [model_order_to_group_name[x] for x in detections]
+            file_name = os.path.basename(input_file)
+            file_name = remove_duplicate_extension(file_name)
+            filename_without_ext = file_name.split('.')[0]
+            save_path = os.path.join(output_dir, filename_without_ext)
+            audio_classification = {group: float(all_probs[i, idx]) for idx, group in enumerate(model_order_to_group_name.values())}
+            sorted_audio_classification = dict(sorted(audio_classification.items(), key=lambda item: item[1], reverse=True))
+            json_data = {
+                "audio_path": file_name,
+                "audio_classification": sorted_audio_classification}
+            json_filename = filename_without_ext + '.json'
+            with open(os.path.join(output_dir, json_filename), 'w') as json_file:
+                json.dump(json_data, json_file, indent=4)
+            npy_filename_base = filename_without_ext
+            np.save(os.path.join(output_dir, npy_filename_base + '_audio_features.npy'), np_embeddings[i])
+    except Exception as e:
+        print(f"An error occurred in zeroshot_classifier_audio for video {output_dir.split('/')[-1]}: {e}")
 
 def main():
     params = read_config(section="evaluations")
