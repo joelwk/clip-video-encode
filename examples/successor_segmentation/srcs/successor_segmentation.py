@@ -34,19 +34,16 @@ class SegmentSuccessorAnalyzer:
         config_params = read_config(section="config_params")
         frame_embedding_pairs, timestamps = get_segmented_and_filtered_frames(video_files, keyframe_files,self.embedding_values, thresholds)
         if len(frame_embedding_pairs) < 2:
-            print(f"No frame embeddings found for {video_files}. Deleting associated files.")
-            for video_file in video_files:
-                video_id = int(os.path.basename(video_file).split('.')[0])
-                delete_associated_files(video_id, directories)
-            return [], []
+            video_id = int(os.path.basename(video_files[0]).split('.')[0])
+            delete_associated_files(video_id, directories)
+            raise ValueError(f"No frame embeddings found for video ID {video_id}. Associated files deleted.")
         try:
             temporal_embeddings = np.array([emb for _, emb in frame_embedding_pairs])
             distances = np.linalg.norm(temporal_embeddings[1:] - temporal_embeddings[:-1], axis=1)
         except AxisError as e:
-            print(f"An AxisError occurred while processing {video_files}: {e}. Skipping analysis.")
             video_id = int(os.path.basename(video_files[0]).split('.')[0])
             delete_associated_files(video_id, directories)
-            return [], []
+            raise ValueError(f"An AxisError occurred while processing video ID {video_id}: {e}. Associated files deleted.")
         successor_distance = calculate_successor_distance(self.embedding_values)
         initial_new_segments = check_for_new_segment(distances, successor_distance, thresholds)
         new_segments = self.calculate_new_segments(initial_new_segments, timestamps)
@@ -198,7 +195,8 @@ def run_analysis(analyzer_class, specific_videos=None):
             if is_directory_empty(save_dir):
                 raise ValueError(f"No keyframes found after processing video {video}.")
         except ValueError as e:
-            delete_associated_files(video, params)
-            logging.warning(f"Error occurred for video {video}: {e}. Deleted all associated files.")
+            logging.warning(f"Error occurred for video {video}: {e}.")
+            continue  # Skip to the next video
+
     if not video_ids:
         print("All videos processed. Stopping script.")

@@ -64,26 +64,24 @@ def generate_config(base_directory):
         "config_yaml": f"{base_directory}/config.yaml"
     }
 
-def is_directory_empty(directory):
+def is_directory_empty(directory): 
     return not os.listdir(directory)
 
 def delete_associated_files(video_id, params):
     try:
-        directories = [
-            params['originalframes'],
-            params['keyframes'],
-            params['embeddings'],
-            params['keyframe_outputs'],
-            params['keyframe_audio_clip_output']
-        ]
-        for directory in directories:
-            pattern = f"{directory}/{video_id}/*"
-            for file_path in glob.glob(pattern):
-                if os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-                elif os.path.isfile(file_path):
-                    os.remove(file_path) 
-                logging.warning(f"Deleted {file_path} associated with video {video_id}.")
+        video_id_str = str(video_id)
+        for directory_key in ['originalframes', 'keyframes', 'embeddings', 'keyframe_outputs', 'keyframe_audio_clip_output']:
+            directory = params.get(directory_key)
+            if directory and os.path.exists(directory):
+                # Match files that exactly start with the video_id followed by non-numeric characters
+                pattern = f"{directory}/{video_id_str}[^0-9]*"
+                for file in glob.glob(pattern):
+                    if os.path.isfile(file):
+                        os.remove(file)
+                        logging.warning(f"Deleted file {file} associated with video {video_id}.")
+                    elif os.path.isdir(file):
+                        shutil.rmtree(file)
+                        logging.warning(f"Deleted directory {file} associated with video {video_id}.")
     except Exception as e:
         print(f"Error in deleting files for video ID {video_id}: {e}")
 

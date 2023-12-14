@@ -163,16 +163,29 @@ def main():
     params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
-        in_path = f"./evaluations/image_audio_pairs/{str(video)}"
-        output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
-        max_duration_ms = int(params['max_duration_ms'])
-        final_audio = f"./evaluations/audio_evaluations/{str(video)}/"
-        convert_flac_to_mp3(output_path)
-        separate_audio(in_path, output_path, max_duration_ms)
-        reorganize_and_move_vocals(output_path)
-        convert_flac_to_mp3(output_path)
-        zeroshot_classifier_audio(output_path)
-        find_and_move_highest_scoring_files(output_path, final_audio)
-        
+        try:
+            in_path = f"./evaluations/image_audio_pairs/{str(video)}"
+            output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
+            max_duration_ms = int(params['max_duration_ms'])
+            final_audio = f"./evaluations/audio_evaluations/{str(video)}/"
+            convert_flac_to_mp3(output_path)
+            separate_audio(in_path, output_path, max_duration_ms)
+            reorganize_and_move_vocals(output_path)
+            convert_flac_to_mp3(output_path)
+            zeroshot_classifier_audio(output_path)
+            find_and_move_highest_scoring_files(output_path, final_audio)
+        except IndexError as e:
+            print(f"Index error occurred for video {video}: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred for video {video}: {e}")
+            # Cleanup this video
+            shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
+            shutil.rmtree(final_audio)
+            shutil.rmtree(in_path)
+            continue
+    print("All videos processed.")
+
 if __name__ == '__main__':
     main()
+
