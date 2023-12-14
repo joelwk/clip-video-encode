@@ -34,7 +34,6 @@ def segment_video_using_keyframes_and_embeddings(video_path, keyframe_clip_outpu
         current_time = video_key_frames.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
         if current_keyframe < len(keyframe_timestamps) - 1 and current_time >= keyframe_timestamps[current_keyframe]:
             end_time = current_time
-            
             if "keyframe" in str(suffix_):
                 # Calculate 10% tolerance and adjust start and end times
                 tolerance = float(thresholds['tolerance'])  * (end_time - start_time)
@@ -43,7 +42,6 @@ def segment_video_using_keyframes_and_embeddings(video_path, keyframe_clip_outpu
             else:
                 adjusted_start_time = start_time
                 adjusted_end_time = end_time
-
             output_path = f"{keyframe_clip_output_dir}/keyframe_clip_{segment_idx}_{suffix_}.mp4"
             command = [
                 'ffmpeg',
@@ -54,7 +52,6 @@ def segment_video_using_keyframes_and_embeddings(video_path, keyframe_clip_outpu
                 '-y', output_path
             ]
             subprocess.run(command)
-            
             start_time = current_time
             segment_idx += 1
             current_keyframe += 1
@@ -69,7 +66,6 @@ def segment_video_using_keyframes_and_embeddings(video_path, keyframe_clip_outpu
         else:
             adjusted_start_time = start_time
             adjusted_end_time = current_time
-            
         output_path = f"{keyframe_clip_output_dir}/keyframe_clip_{segment_idx}_{suffix_}.mp4"
         command = [
             'ffmpeg',
@@ -96,7 +92,6 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
         else:
             adjusted_start_time = start_time
             adjusted_end_time = end_time
-
         output_path = f"{audio_clip_output_dir}/keyframe_audio_clip_{segment_idx}_{suffix_}.m4a"
         command = [
             'ffmpeg',
@@ -107,7 +102,6 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
             '-y', output_path
         ]
         subprocess.run(command)
-
         start_time = end_time
         segment_idx += 1
         current_time = end_time
@@ -115,24 +109,23 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
 def main(segment_video, segment_audio, specific_videos):
     params = read_config(section="directory")
     thresholds = read_thresholds_config()  # Read thresholds for consistency
+    # Determine which videos to process
     video_ids = get_all_video_ids(params['originalframes']) if specific_videos is None else specific_videos
+
     for vid in video_ids:
-        try:
-            audio_files, video_files, key_video_files, embedding_files, keyframe_data = setup_for_video_audio(vid, params)
-            if None in (audio_files, video_files, key_video_files, embedding_files, keyframe_data):
-                print(f"Skipping video ID {vid} due to setup errors.")
-                continue
-            keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
-            if segment_video:
-                clip_output = f"./output/keyframe_clip/{vid}"
-                os.makedirs(clip_output, exist_ok=True)
-                segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps, thresholds)
-            if segment_audio:
-                audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
-                os.makedirs(audio_clip_output, exist_ok=True)
-                segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
-        except Exception as e:
-            print(f"An error occurred while processing video ID {vid}: {e}")
+        audio_files, video_files, key_video_files, embedding_files, keyframe_data = setup_for_video_audio(vid, params)
+        # Skip this video if setup_for_video_audio returned None (due to an exception)
+        if any(v is None for v in [audio_files, video_files, key_video_files, embedding_files, keyframe_data]):
+            continue
+        keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
+        if segment_video:
+            clip_output = f"./output/keyframe_clip/{vid}"
+            os.makedirs(clip_output, exist_ok=True)
+            segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps, thresholds)
+        if segment_audio:
+            audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
+            os.makedirs(audio_clip_output, exist_ok=True)
+            segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
 
 def setup_for_video_audio(vid, params):
     try:
@@ -155,12 +148,11 @@ def setup_for_video_audio(vid, params):
         print(e)
         # Removing directory associated with the video
         video_dir = os.path.join(params['keyframe_outputs'], str(vid))
-        video_id = int(os.path.basename(video_dir).split('.')[0])
         if os.path.exists(video_dir):
             shutil.rmtree(video_dir)
             print(f"Removed directory {video_dir} due to missing keyframe data.")
-            delete_associated_files(video_id, params)
-        return None, None, None, None
+            delete_associated_files(str(vid), params)
+        return None, None, None, None, None  # Return five None values
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-        return None, None, None, None
+        return None, None, None, None, None 
