@@ -1,6 +1,7 @@
 import os
 from imagehash import phash
 import json
+import shutil
 import cv2
 import numpy as np
 from PIL import Image
@@ -9,7 +10,7 @@ import subprocess
 from typing import List, Tuple, Union, Optional
 from srcs.pipeline import read_config
 from srcs.load_data import get_all_video_ids, load_video_files, load_audio_files, load_key_video_files, load_embedding_files, load_embedding_values, get_video_duration, load_keyframe_embedding_files
-from srcs.segment_processing import get_segmented_and_filtered_frames, filter_keyframes_based_on_phash, calculate_successor_distance, check_for_new_segment, read_thresholds_config
+from srcs.segment_processing import get_segmented_and_filtered_frames, filter_keyframes_based_on_phash, calculate_successor_distance, check_for_new_segment, read_thresholds_config,delete_associated_files
 
 def segment_video_using_keyframes_and_embeddings(video_path, keyframe_clip_output_dir, keyframe_timestamps, thresholds, suffix_=None):
     # Validate types
@@ -114,43 +115,52 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_ti
 def main(segment_video, segment_audio, specific_videos):
     params = read_config(section="directory")
     thresholds = read_thresholds_config()  # Read thresholds for consistency
-
-    # Determine which videos to process
     video_ids = get_all_video_ids(params['originalframes']) if specific_videos is None else specific_videos
-
     for vid in video_ids:
-        audio_files, video_files, key_video_files, embedding_files, keyframe_data = setup_for_video_audio(vid, params)
-        keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
-
-        if segment_video:
-            clip_output = f"./output/keyframe_clip/{vid}"
-            os.makedirs(clip_output, exist_ok=True)
-            # Segment video using keyframes and embeddings
-            segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps, thresholds)
-
-        if segment_audio:
-            audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
-            os.makedirs(audio_clip_output, exist_ok=True)
-            # Segment audio using keyframes (assuming a similar function exists)
-            segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
+        try:
+            audio_files, video_files, key_video_files, embedding_files, keyframe_data = setup_for_video_audio(vid, params)
+            if None in (audio_files, video_files, key_video_files, embedding_files, keyframe_data):
+                print(f"Skipping video ID {vid} due to setup errors.")
+                continue
+            keyframe_timestamps = [data['time_frame'] for data in keyframe_data.values()]
+            if segment_video:
+                clip_output = f"./output/keyframe_clip/{vid}"
+                os.makedirs(clip_output, exist_ok=True)
+                segment_video_using_keyframes_and_embeddings(key_video_files[0], clip_output, keyframe_timestamps, thresholds)
+            if segment_audio:
+                audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
+                os.makedirs(audio_clip_output, exist_ok=True)
+                segment_audio_using_keyframes(audio_files[0], audio_clip_output, keyframe_timestamps, thresholds, suffix_='_fromaudio_filtered')
+        except Exception as e:
+            print(f"An error occurred while processing video ID {vid}: {e}")
 
 def setup_for_video_audio(vid, params):
-    # Load files and data required for both video and audio segmentation
-    # Returns the necessary files and data
-    video_files = load_video_files(str(vid), params)
-    key_video_files = load_key_video_files(str(vid), params)
-    embedding_files = load_keyframe_embedding_files(str(vid), params)
-    embedding_values = load_embedding_values(embedding_files)
-    audio_files = load_audio_files(str(vid), params)
-
-    # Read keyframe data
-    json_path = os.path.join(".", "output", "keyframes", str(vid), "keyframe_data.json")
-    if not os.path.exists(json_path):
-        print(f"No keyframe_data.json found for video id {vid}. Skipping.")
+    try:
+        # Load files and data required for both video and audio segmentation
+        video_files = load_video_files(str(vid), params)
+        key_video_files = load_key_video_files(str(vid), params)
+        embedding_files = load_keyframe_embedding_files(str(vid), params)
+        embedding_values = load_embedding_values(embedding_files)
+        audio_files = load_audio_files(str(vid), params)
+        # Read keyframe data
+        json_path = os.path.join(".", "output", "keyframes", str(vid), "keyframe_data.json")
+        if not os.path.exists(json_path):
+            raise FileNotFoundError(f"No keyframe_data.json found for video id {vid}.")
+        with open(json_path, 'r') as f:
+            keyframe_data = json.load(f)
+        audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
+        os.makedirs(audio_clip_output, exist_ok=True)
+        return audio_files, video_files, key_video_files, embedding_files, keyframe_data
+    except FileNotFoundError as e:
+        print(e)
+        # Removing directory associated with the video
+        video_dir = os.path.join(params['keyframe_outputs'], str(vid))
+        video_id = int(os.path.basename(video_dir).split('.')[0])
+        if os.path.exists(video_dir):
+            shutil.rmtree(video_dir)
+            print(f"Removed directory {video_dir} due to missing keyframe data.")
+            delete_associated_files(video_id, params)
         return None, None, None, None
-    with open(json_path, 'r') as f:
-        keyframe_data = json.load(f)
-
-    audio_clip_output = f"./output/keyframe_audio_clip/{vid}"
-    os.makedirs(audio_clip_output, exist_ok=True)
-    return audio_files, video_files, key_video_files, embedding_files, keyframe_data
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None, None, None, None

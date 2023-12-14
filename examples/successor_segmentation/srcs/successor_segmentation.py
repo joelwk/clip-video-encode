@@ -44,6 +44,8 @@ class SegmentSuccessorAnalyzer:
             distances = np.linalg.norm(temporal_embeddings[1:] - temporal_embeddings[:-1], axis=1)
         except AxisError as e:
             print(f"An AxisError occurred while processing {video_files}: {e}. Skipping analysis.")
+            video_id = int(os.path.basename(video_files[0]).split('.')[0])
+            delete_associated_files(video_id, directories)
             return [], []
         successor_distance = calculate_successor_distance(self.embedding_values)
         initial_new_segments = check_for_new_segment(distances, successor_distance, thresholds)

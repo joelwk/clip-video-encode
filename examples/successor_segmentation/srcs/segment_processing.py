@@ -79,7 +79,7 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
     selected_config = config[args.mode]
     frame_embedding_pairs = []
     timestamps = []
-
+    video_id = None
     try:
         total_duration = ld.get_video_duration(video_files)
         for vid_path in keyframe_files:
@@ -111,6 +111,9 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
         timestamps = [ts for ts in timestamps if ts in filtered_timestamps]
         return frame_embedding_pairs, timestamps
     except Exception as e:
-        delete_associated_files(video_id, selected_config)
-        print(f"An error occurred during processing: {e}. Associated files for video ID {video_id} have been deleted.")
+        if video_id is not None:
+            delete_associated_files(video_id, selected_config)
+            print(f"An error occurred during processing: {e}. Associated files for video ID {video_id} have been deleted.")
+        else:
+            print(f"An error occurred: {e}, but no video ID was available to delete associated files.")
         return [], []

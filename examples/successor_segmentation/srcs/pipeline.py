@@ -77,7 +77,7 @@ def delete_associated_files(video_id, params):
             params['keyframe_audio_clip_output']
         ]
         for directory in directories:
-            pattern = f"{directory}/*{video_id}*"
+            pattern = f"{directory}/{video_id}/*"
             for file_path in glob.glob(pattern):
                 if os.path.isdir(file_path):
                     shutil.rmtree(file_path)
