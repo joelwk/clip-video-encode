@@ -5,7 +5,7 @@ import shutil
 import numpy as np
 import re
 
-from evaluations.prepare import (
+from prepare import (
     model_clap, prepare_audio_labels,read_config, format_labels, softmax,get_all_video_ids,normalize_scores
 )
 
@@ -91,9 +91,14 @@ def combine_emotion_scores(image_json_path, audio_json_path, output_path):
         json.dump(output, file, indent=4)
         
 def process_all_keyframes(video_base_path, audio_processed_base_path, output_base_path):
+    evaluations_base_path = os.path.dirname(audio_processed_base_path)
+    path_image_audio_pairs = os.path.join(evaluations_base_path, "image_audio_pairs")
     for video_dir in glob.glob(video_base_path + '/*'):
         video_id = os.path.basename(video_dir)
+        path_image_audio_pairs = os.path.join(evaluations_base_path,"image_audio_pairs", video_id)
         video_output_dir = os.path.join(output_base_path, f'{video_id}')
+        if not os.path.exists(video_output_dir):
+            os.makedirs(video_output_dir)
         if not os.path.exists(video_output_dir):
             os.makedirs(video_output_dir)
         for image_json_file in glob.glob(video_dir + '/keyframe_*.json'):
@@ -105,23 +110,25 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                 audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_analysis.json')
                 audio_json_path_vocals = os.path.join(audio_processed_base_path, f'{video_id}', f'segment_{keyframe_id}__keyframe_vocals_analysis.json')
                 audio_json_to_use = audio_json_path_vocals if os.path.exists(audio_json_path_vocals) else audio_json_path
+                text_filename = f"video_{video_id}_keyframe_audio_clip_{keyframe_id}.txt"
+                text_file_path = os.path.join(path_image_audio_pairs, text_filename)
                 if os.path.exists(audio_json_to_use):
                     output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}_{timestamp}.json')
                     combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
                     print(f'Combined JSON created for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
-                    image_file_path = image_json_file.replace('.json', '.png')
-                    image_npy_file_path = image_json_file.replace('.json', '_image_features.npy')
-                    if os.path.exists(image_file_path):
-                        shutil.copy(image_file_path, video_output_dir)
-                        print(f'Processed image file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
-                    if os.path.exists(image_npy_file_path):
-                        shutil.copy(image_npy_file_path, video_output_dir)
-                        print(f'Processed image NPY file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
+                    keyframe_base = os.path.splitext(image_json_file)[0]  # Remove .json extension
+                    for image_file in glob.glob(f"{keyframe_base}*.png"):
+                        shutil.copy(image_file, video_output_dir)
+                        print(f"Processed image file copied: {image_file}")
+                    for npy_file in glob.glob(f"{keyframe_base}*_image_features.npy"):
+                        shutil.copy(npy_file, video_output_dir)
+                        print(f"Processed image NPY file copied: {npy_file}")
                     audio_file_path = audio_json_to_use.replace('_analysis.json', '.mp3')
                     audio_npy_file_path = audio_json_to_use.replace('_analysis.json', '_audio_features.npy')
                     if os.path.exists(audio_file_path):
                         shutil.copy(audio_file_path, video_output_dir)
                         shutil.copy(audio_npy_file_path, video_output_dir)
+                        shutil.copy(text_file_path, video_output_dir)
                         print(f'Processed audio file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
 
 def main():
