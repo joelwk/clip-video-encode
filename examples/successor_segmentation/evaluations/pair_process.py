@@ -110,10 +110,10 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                     combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
                     print(f'Combined JSON created for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
                     image_file_path = image_json_file.replace('.json', '.png')
+                    image_npy_file_path = image_json_file.replace('.json', '_image_features.npy')
                     if os.path.exists(image_file_path):
                         shutil.copy(image_file_path, video_output_dir)
                         print(f'Processed image file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')
-                    image_npy_file_path = re.sub(r'timestamp_[\d\.]+\.json', 'image_features.npy', image_json_file)
                     if os.path.exists(image_npy_file_path):
                         shutil.copy(image_npy_file_path, video_output_dir)
                         print(f'Processed image NPY file copied for keyframe {keyframe_id} with timestamp {timestamp} of video {video_id}')

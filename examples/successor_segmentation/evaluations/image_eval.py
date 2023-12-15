@@ -69,7 +69,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     
     # Calculate probabilities for different categories using softma
     is_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_person.T))
-    type_person_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_type_person.T))
+    type_person_probs = softmax(float(params['scalingfactor']) * image_features @ text_features_type_person.T)
     face_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_number_of_faces.T))
     orientation_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_orientation.T))
     engagement_probs = softmax(float(params['scalingfactor']) * normalize_scores(image_features @ text_features_if_engaged.T))
@@ -94,7 +94,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         filename = remove_duplicate_extension(filename)
         save_path = os.path.join(run_output_dir, filename)
         img.save(save_path)
-        sorted_face_detection_scores = sort_and_store_scores(is_person_probs[0], format_labels(labels, 'checktypeperson'))
+        sorted_type_person_scores = sort_and_store_scores(type_person_probs[0], format_labels(labels, 'checktypeperson'))
         sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
         sorted_emotions_scores = sort_and_store_scores(text_score_emotions[0], format_labels(labels, 'emotions'))
         sorted_valence = sort_and_store_scores(text_probs_valence[0], format_labels(labels, 'valence'))
@@ -102,7 +102,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         json_data = {
             "image_path": filename,
             "face_detected": face_detected_python_bool,
-            "face_detection_scores": sorted_face_detection_scores,
+            "face_detection_scores": sorted_type_person_scores,
             "emotions_probs": sorted_emotions,
             "emotions_scores":sorted_emotions_scores,
             "valence": sorted_valence}
