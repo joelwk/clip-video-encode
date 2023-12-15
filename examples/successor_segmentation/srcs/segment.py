@@ -1,4 +1,3 @@
-# Import the main functions from your other Python scripts
 from srcs.rename_and_move import main as rename_and_move_main
 from srcs.segment_averaging import main as segment_averaging_main
 from srcs.move_and_group import main as move_and_group_main
@@ -10,18 +9,6 @@ from srcs.convert_types import main as convert_types_main
 import os
 import shutil
 from srcs.pipeline import read_config, string_to_bool
-
-import os
-import shutil
-from srcs.pipeline import read_config, string_to_bool
-from srcs.rename_and_move import main as rename_and_move_main
-from srcs.segment_averaging import main as segment_averaging_main
-from srcs.move_and_group import main as move_and_group_main
-from srcs.save_to_webdataset import main as save_to_webdataset_main
-from srcs.whisper import process_audio_files
-from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
-from srcs.fold_seams import main as fold_seams_main
-from srcs.convert_types import main as convert_types_main
 
 def remove_incomplete_video_directories(completedirectory):
     required_dirs = ['keyframe_audio_clips', 'keyframeembeddings', 'keyframes', 'keyframevideos', 'originalvideos']
@@ -43,15 +30,12 @@ def run_all_scripts():
     compute_embeddings = string_to_bool(config_params.get("compute_embeddings", "False"))
     specific_videos_str = config_params.get("specific_videos", "")
     specific_videos = [int(x.strip()) for x in specific_videos_str.strip('[]').split(',')] if specific_videos_str and specific_videos_str != "None" else None
-    
     try:
         rename_and_move_main()
         run_analysis(SegmentSuccessorAnalyzer)
         fold_seams_main(segment_video, segment_audio, specific_videos)
-
         if compute_embeddings:
             segment_averaging_main()
-
         move_and_group_main()
         remove_incomplete_video_directories(completedirectory)
         process_audio_files()
