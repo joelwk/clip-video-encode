@@ -18,9 +18,15 @@ def clip_encode(selected_config):
         yield
         os.chdir(od)
 
-    with change_dir('./clip-video-encode/'):
+    # Dynamically set the base path
+    if 'content' in os.getcwd():
+        base_path = '/content'  # Google Colab
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # Local environment
+    # Construct the absolute path for clip-video-encode
+    clipencode_abs_path = os.path.join(base_path, 'clip-video-encode')
+    with change_dir(clipencode_abs_path):
         from clip_video_encode import clip_video_encode
-
     clip_video_encode(
         f'{selected_config["base_directory"]}/keyframe_video_requirements.parquet',
         selected_config["embeddings"],
@@ -31,7 +37,12 @@ def clip_encode(selected_config):
 
 def main():
     directories = read_config(section="directory")
-    clipencode_path = './clip-video-encode/'
+    # Same dynamic base path logic
+    if 'content' in os.getcwd():
+        base_path = '/content'
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    clipencode_path = os.path.join(base_path, 'clip-video-encode')
     install_requirements(clipencode_path)
     clip_encode(directories)
     return 0

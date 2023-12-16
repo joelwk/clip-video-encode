@@ -154,16 +154,16 @@ def model_clip(config_path=config_path):
         model_clip = model_clip.to('cuda')
     return model_clip, preprocess_train, preprocess_val, tokenizer
 
-def model_clap():
-    model_config = read_config('evaluations')
-    # Load CLAP model and checkpoint
+def model_clap(config_path=config_path):
+    model_config = read_config('evaluations', config_path)
     if not os.path.isfile(model_config['model_clap_checkpoint'].split('/')[-1]):
         subprocess.run(['wget', model_config['model_clap_checkpoint']])
     model_clap = laion_clap.CLAP_Module(enable_fusion=False, amodel=model_config['model_clap'])
-    # Load checkpoint
-    checkpoint = torch.load(model_config['model_clap_checkpoint'].split('/')[-1])
+    checkpoint = torch.load(model_config['model_clap_checkpoint'].split('/')[-1], map_location='cpu')
     model_clap.load_state_dict(checkpoint, strict=False)
     if torch.cuda.is_available():
+        if torch.cuda.device_count() > 1:
+            model_clap = torch.nn.DataParallel(model_clap)
         model_clap = model_clap.to('cuda')
     return model_clap
 
