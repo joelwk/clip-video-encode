@@ -28,9 +28,7 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
                 # Prepare a key to represent this data item
                 category = f"{parent_key}/{item}"
                 extension = os.path.splitext(item)[-1][1:]  # Strip the dot from the extension
-                
-                # Explicitly check types and add assert statements
-                
+                                
                 # Handle .npy files (NumPy arrays)
                 if extension == 'npy':
                     array = np.load(item_path)
@@ -68,13 +66,7 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
 def main():
     directories = read_config(section="directory")
     evaluations = read_config(section="evaluations")
-    # Check if the 'completeddatasets' directory exists
-    completed_datasets_dir = evaluations['completedatasets']
     root_folder = evaluations['outputs']
-    if completed_datasets_dir and os.path.exists(completed_datasets_dir):
-        # Move the 'completeddatasets' directory to the evaluations output folder
-        shutil.move(completed_datasets_dir, root_folder)
-        print(f"Moved '{completed_datasets_dir}' to '{root_folder}'")
     output_folder = directories['video_wds_output']
     os.makedirs(output_folder, exist_ok=True)
     package_datasets_to_webdataset(root_folder, output_folder)
