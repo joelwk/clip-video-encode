@@ -105,10 +105,8 @@ def find_and_move_highest_scoring_files(json_dir, processed_dir):
             if clip_id in processed_clips:
                 continue
             base_file_name = f'{clip_type}_{clip_id}'
-            print('base_file_name',base_file_name)
             vocals_suffix = '_vocals' if is_vocals else ''
             regular_file = f'{base_file_name}.json'
-            print('regular_file',regular_file)
             vocals_file = f'{base_file_name}{vocals_suffix}.json'
             regular_score = get_score(os.path.join(json_dir, regular_file))
             vocals_score = get_score(os.path.join(json_dir, vocals_file))
@@ -189,7 +187,7 @@ def main():
         try:
             in_path = f"./evaluations/image_audio_pairs/{str(video)}"
             output_path = f"./evaluations/audio_evaluations/{str(video)}/audio_processed"
-            max_duration_ms = int(params['max_duration_ms'])
+            max_duration_ms = int(params['max_duration_ms'] * 1000)
             final_audio = f"./evaluations/audio_evaluations/{str(video)}/"
             convert_flac_to_mp3(output_path)
             separate_audio(in_path, output_path, max_duration_ms)

@@ -31,15 +31,22 @@ def run_all_scripts():
     specific_videos_str = config_params.get("specific_videos", "")
     specific_videos = [int(x.strip()) for x in specific_videos_str.strip('[]').split(',')] if specific_videos_str and specific_videos_str != "None" else None
     try:
+        print('Running rename_and_move')
         rename_and_move_main()
         run_analysis(SegmentSuccessorAnalyzer)
+        print('Running successor segmentation')
         fold_seams_main(segment_video, segment_audio, specific_videos)
         if compute_embeddings:
+            print('Running segment averaging')
             segment_averaging_main()
+        print('Running move_and_group')
         move_and_group_main()
         remove_incomplete_video_directories(completedirectory)
+        print('Running process_audio_files')
         process_audio_files()
+        print('Running convert_types')
         convert_types_main()
+        print('Running save_to_webdataset')
         save_to_webdataset_main()
     except Exception as e:
         print(f"An error occurred in the pipeline: {e}")

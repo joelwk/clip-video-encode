@@ -95,8 +95,6 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, key=None, disp
     text_score_emotions = image_features @ text_features.T
     text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
     face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
-    display(image_path)
-    print(face_detected)
     if face_detected:
         if display_image:
             display_image_from_file(image_path)
@@ -107,14 +105,11 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, key=None, disp
             print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
             print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
             print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
-        
         filename = os.path.basename(key)
-        print(filename)
         filename_without_ext = filename.split('.')[0]
         filename = remove_duplicate_extension(filename)
         if len(filename.split('_')) > 2:
             filename = filename.split('_')[0] + '_' + filename.split('_')[1] + '.png'
-        print(filename)
         save_path = os.path.join(run_output_dir, filename)
         image_path.save(save_path)
         sorted_type_person_scores = sort_and_store_scores(type_person_probs[0], format_labels(labels, 'checktypeperson'))
