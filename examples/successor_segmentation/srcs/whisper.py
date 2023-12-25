@@ -13,17 +13,13 @@ def read_keyframe_data(keyframe_json_path):
         return json.load(file)
         
 def install_requirements():
-    try:
-        import torch
-        import pydub
-        import transformers
-    except ImportError:
-        print("Installing required packages and restarting...")
-        subprocess.run(["pip", "install", "torch", "torchvision", "torchaudio"])
-        subprocess.run(["pip", "install", "accelerate", "optimum"])
-        subprocess.run(["pip", "install", "ipython-autotime"])
-        subprocess.run(["pip", "install", "pydub"])
-
+    print("Installing required packages and restarting...")
+    subprocess.run(["pip", "install", "torch", "torchvision", "torchaudio"])
+    subprocess.run(["pip", "install", "accelerate", "optimum"])
+    subprocess.run(["pip", "install", "ipython-autotime"])
+    subprocess.run(["pip", "install", "pydub"])
+    subprocess.run(["pip", "install","transformers"])
+    
 install_requirements()
 import torch
 from pydub import AudioSegment
@@ -45,12 +41,12 @@ def convert_audio_files(input_directory, output_directory, output_format="flac")
 
 def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_data, duration, suffix_=None):
     os.makedirs(audio_clip_output_dir, exist_ok=True)
-    output_aligned = [{'segment_idx': idx, 'timestamp': [keyframe['time_frame'], keyframe['time_frame'] + duration]} for idx, keyframe in keyframe_data.items()]
+    output_aligned = [{'segment_idx': idx, 'timestamp': [keyframe['time_frame'], keyframe['time_frame'] + int(duration/1000)]} for idx, keyframe in keyframe_data.items()]
     for segment in output_aligned:
         start_time = segment['timestamp'][0]
         adjusted_start_time = start_time
         suffix_str = f"_{suffix_}" if suffix_ else ""
-        output_segment_path = f"{audio_clip_output_dir}/segment_{segment['segment_idx']}{suffix_str}.flac"
+        output_segment_path = f"{audio_clip_output_dir}/keyframe_{segment['segment_idx']}{suffix_str}.flac"
         command = [
             'ffmpeg',
             '-ss', str(adjusted_start_time),
@@ -65,30 +61,22 @@ def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_da
         json.dump(output_aligned, f)
 
 def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
+    evaluations = read_config(section="evaluations")
     # Load the audio file using pydub
     audio = AudioSegment.from_file(audio_path)
     try:
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        pipe = pipeline("automatic-speech-recognition",
-                        "openai/whisper-large-v2",
+        pipe = pipeline(evaluations['pipeline_function'],
+                        evaluations['whisper_model'],
                         torch_dtype=torch.float16,
                         device=device)
-
         output_aligned_final = []
-
-        # Process each segment defined in keyframe_data
         for idx, keyframe in keyframe_data.items():
             start_time_ms = keyframe['time_frame'] * 1000  # Convert start time to milliseconds
-            end_time_ms = start_time_ms + (duration * 1000)  # Calculate end time in milliseconds
-
-            # Extract the segment
+            end_time_ms = start_time_ms + (duration)  # Calculate end time in milliseconds
             audio_segment = audio[start_time_ms:end_time_ms]
-
-            # Save this segment to a temporary file
             temp_path = os.path.join(audio_clip_output_dir, f'temp_segment_{idx}.flac')
             audio_segment.export(temp_path, format='flac')
-
-            # Process the segment using Whisper
             outputs = pipe(temp_path, return_timestamps=True)
             os.remove(temp_path)  # Remove the temporary file
             chunks = outputs.get("chunks", [])
@@ -99,8 +87,6 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
                     'timestamp': [start_time_ms / 1000, end_time_ms / 1000],  
                     'text': transcript}
                 output_aligned_final.append(segment_info)
-                
-        # Save the results to a JSON file
         json_path = os.path.join(audio_clip_output_dir, 'outputs.json')
         with open(json_path, 'w') as f:
             json.dump(output_aligned_final, f)
@@ -108,15 +94,14 @@ def audio_pipeline(audio_path, audio_clip_output_dir, keyframe_data, duration):
         print(f"Error in audio_pipeline: {e}")
 
 def full_audio_transcription_pipeline(audio_path, output_dir):
+    evaluations = read_config(section="evaluations")
     try:
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        pipe = pipeline("automatic-speech-recognition",
-                        "openai/whisper-large-v2",
+        pipe = pipeline(evaluations['pipeline_function'],
+                        evaluations['whisper_model'],
                         torch_dtype=torch.float16,
                         device=device)
-
-        # Process the entire audio file using Whisper
-        outputs = pipe(audio_path,chunk_length_s=30,batch_size=30, return_timestamps=True)
+        outputs = pipe(audio_path,chunk_length_s=int(evaluations['chunk_length']),batch_size=int(evaluations['batch_size']), return_timestamps=True)
         chunks = outputs.get("chunks", [])
         if not chunks:
             print(f"No chunks returned by the pipeline for {audio_path}.")
@@ -130,10 +115,10 @@ def full_audio_transcription_pipeline(audio_path, output_dir):
         print(f"Error in full_audio_transcription_pipeline: {e}")
         
 def process_audio_files():
-    directories = read_config(section="evaluations")
+    evaluations = read_config(section="evaluations")
     config_params = read_config(section="config_params")
     try:
-        base_path = directories['completedatasets']
+        base_path = evaluations['completedatasets']
         for n in os.listdir(base_path):
             initial_input_directory = os.path.join(base_path, n, 'originalvideos')
             audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
@@ -144,19 +129,18 @@ def process_audio_files():
             for audio_file in os.listdir(initial_input_directory):
                 if audio_file.endswith('.m4a'):
                     audio_path = os.path.join(initial_input_directory, audio_file)
-                    segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_data, 5, suffix_='_keyframe')
+                    segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_data,  int(evaluations['max_duration_ms']), suffix_=None)
                     individual_output_dir = os.path.join(audio_clip_output_dir, os.path.splitext(audio_file)[0])
                     if not os.path.exists(individual_output_dir):
                         os.makedirs(individual_output_dir)
                     convert_audio_files(initial_input_directory, individual_output_dir)
                     flac_file = os.path.splitext(audio_file)[0] + '.flac'
                     audio_path = os.path.join(individual_output_dir, flac_file)
-                    audio_pipeline(audio_path, individual_output_dir, keyframe_data, 5)
+                    audio_pipeline(audio_path, individual_output_dir, keyframe_data, int(evaluations['max_duration_ms']))
             process_full_audio = string_to_bool(config_params.get("full_whisper_audio", "False"))
             if process_full_audio:
                 if not os.path.exists(full_audio_clip_output_dir):
                     os.makedirs(full_audio_clip_output_dir)
-                # Process the entire audio file for transcription
                 full_audio_transcription_pipeline(audio_path, full_audio_clip_output_dir)
     except Exception as e:
         print(f"An exception occurred: {e}")

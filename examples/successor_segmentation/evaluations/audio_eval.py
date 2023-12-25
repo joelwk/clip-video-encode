@@ -14,7 +14,7 @@ import json
 from evaluations.prepare import (
     read_config, get_all_video_ids,generate_embeddings, format_labels, tensor_to_array, 
     remove_duplicate_extension, model_clap, normalize_scores,load_key_image_files,
-    load_key_audio_files,get_all_video_ids,prepare_audio_labels,get_audio_embeddings
+    load_key_audio_files,get_all_video_ids,prepare_audio_labels,get_audio_embeddings,get_video_ids
 )
 
 def get_audio_duration(audio_file):
@@ -67,7 +67,6 @@ def reorganize_and_move_vocals(processed_dir, model_name='htdemucs'):
                 print(f"Removed empty directory: {dir_path}")
 
 def separate_audio(input_dir, processed_dir, max_duration_ms, model="htdemucs", extensions=["mp3", "wav", "ogg", "flac"], mp3=True, mp3_rate=320, float32=False, int24=False):
-    # Create processed directory if it doesn't exist
     if not os.path.exists(processed_dir):
         os.makedirs(processed_dir)
     cmd = ["python3", "-m", "demucs.separate", "-o", str(processed_dir), "-n", model]
@@ -94,40 +93,53 @@ def separate_audio(input_dir, processed_dir, max_duration_ms, model="htdemucs", 
     else:
         print(stdout.decode())
 
-def move_specific_file(source_dir, destination_dir, pattern):
-    for file in glob.glob(os.path.join(source_dir, pattern)):
-        shutil.move(file, os.path.join(destination_dir, os.path.basename(file)))
-        print(f"Moved file: {os.path.basename(file)}")
-
 def find_and_move_highest_scoring_files(json_dir, processed_dir):
     processed_clips = set()
-    for json_file in sorted(glob.glob(os.path.join(json_dir, 'segment_*.json'))):
+    keyframe_pattern = r'keyframe_(\d+?)((_vocals)?\.json)$'
+    for json_file in sorted(glob.glob(os.path.join(json_dir, '*.json'))):
         base_name = os.path.basename(json_file)
-        clip_id_match = re.match(r'segment_(\d+)(__keyframe)?(_vocals)?\.json', base_name)
-        if clip_id_match:
-            clip_id = clip_id_match.group(1)
+        keyframe_match = re.search(keyframe_pattern, base_name)
+        if keyframe_match:
+            clip_id = keyframe_match.group(1)
+            is_vocals = keyframe_match.group(2) is not None
             if clip_id in processed_clips:
                 continue
-            regular_file = f'segment_{clip_id}__keyframe.json'
-            vocals_file = f'segment_{clip_id}__keyframe_vocals.json'
-            regular_score, vocals_score = 0, 0
-            if os.path.exists(os.path.join(json_dir, regular_file)):
-                with open(os.path.join(json_dir, regular_file), 'r') as file:
-                    data = json.load(file)
-                    regular_score = data.get("audio_classification", {}).get("Human speech", 0)
-            if os.path.exists(os.path.join(json_dir, vocals_file)):
-                with open(os.path.join(json_dir, vocals_file), 'r') as file:
-                    data = json.load(file)
-                    vocals_score = data.get("audio_classification", {}).get("Human speech", 0)
+            base_file_name = f'{clip_type}_{clip_id}'
+            print('base_file_name',base_file_name)
+            vocals_suffix = '_vocals' if is_vocals else ''
+            regular_file = f'{base_file_name}.json'
+            print('regular_file',regular_file)
+            vocals_file = f'{base_file_name}{vocals_suffix}.json'
+            regular_score = get_score(os.path.join(json_dir, regular_file))
+            vocals_score = get_score(os.path.join(json_dir, vocals_file))
             is_vocals = vocals_score > regular_score
-            mp3_file = f'segment_{clip_id}__keyframe' + ('_vocals.mp3' if is_vocals else '.mp3')
-            json_file = f'segment_{clip_id}__keyframe' + ('_vocals.json' if is_vocals else '.json')
-            npy_pattern = f'segment_{clip_id}__keyframe' + ('_vocals_audio_features.npy' if is_vocals else '_audio_features.npy')
+            chosen_suffix = vocals_suffix
+            mp3_file = f'{base_file_name}{chosen_suffix}.mp3'
+            json_file = f'{base_file_name}{chosen_suffix}.json'
+            npy_file = f'{base_file_name}{chosen_suffix}_audio_features.npy'
             move_specific_file(json_dir, processed_dir, mp3_file)
             move_specific_file(json_dir, processed_dir, json_file)
-            move_specific_file(json_dir, processed_dir, npy_pattern)
+            move_specific_file(json_dir, processed_dir, npy_file)
             processed_clips.add(clip_id)
 
+def get_score(file_path):
+    """Extracts the 'Human speech' score from the given JSON file."""
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            return data.get("audio_classification", {}).get("Human speech", 0)
+    return 0
+
+def move_specific_file(source_dir, destination_dir, file_name):
+    """Moves a specific file from the source to the destination directory."""
+    source_path = os.path.join(source_dir, file_name)
+    destination_path = os.path.join(destination_dir, file_name)
+    if os.path.exists(source_path):
+        os.rename(source_path, destination_path)
+        print(f"Moved {file_name} to {destination_dir}")
+    else:
+        print(f"File does not exist: {source_path}")
+      
 def zeroshot_classifier_audio(output_dir):
     try:
         params = read_config(section="evaluations")
@@ -166,7 +178,13 @@ def zeroshot_classifier_audio(output_dir):
 
 def main():
     params = read_config(section="evaluations")
-    video_ids = get_all_video_ids(params['completedatasets'])
+    config_params = read_config(section="config_params")
+    if config_params['mode'] == 'directory':
+        video_ids = get_all_video_ids(params['completedatasets'])
+    else:
+        config_params['mode'] == 'wds'
+        video_ids = get_video_ids('./evaluations/image_evaluations/')
+        
     for video in video_ids:
         try:
             in_path = f"./evaluations/image_audio_pairs/{str(video)}"
@@ -186,11 +204,9 @@ def main():
             print(f"An unexpected error occurred for video {video}: {e}")
             # Cleanup this video
             shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
-            shutil.rmtree(final_audio)
-            shutil.rmtree(in_path)
+            shutil.rmtree(output_path)
             continue
     print("All videos processed.")
-
 if __name__ == '__main__':
     main()
 

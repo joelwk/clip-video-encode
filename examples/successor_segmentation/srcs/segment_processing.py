@@ -47,9 +47,7 @@ def calculate_successor_distance(embeddings: List[np.ndarray]) -> List[float]:
         (euclidean_distance - min_val) / (max_val - min_val)
     return normalized_distances
 
-def filter_keyframes_based_on_phash(frames: List[np.ndarray], 
-                                    keyframe_timestamps: List[float], 
-                                    thresholds: Dict[str, Optional[float]]) -> List[float]:
+def filter_keyframes_based_on_phash(frames: List[np.ndarray], keyframe_timestamps: List[float], thresholds: Dict[str, Optional[float]]) -> List[float]:
     phash_threshold = thresholds['phash_threshold']
     filtered_timestamps = []
     for idx1, frame1 in enumerate(frames):
@@ -60,8 +58,7 @@ def filter_keyframes_based_on_phash(frames: List[np.ndarray],
                 filtered_timestamps.append(keyframe_timestamps[idx1])
     return filtered_timestamps
 
-def calculate_video_frame_phash_similarity(frame1: np.ndarray, 
-                                           frame2: np.ndarray) -> float:
+def calculate_video_frame_phash_similarity(frame1: np.ndarray, frame2: np.ndarray) -> float:
     img1 = Image.fromarray(cv2.cvtColor(frame1, cv2.COLOR_BGR2RGB))
     img2 = Image.fromarray(cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB))
     hash1 = phash(img1)
@@ -69,13 +66,10 @@ def calculate_video_frame_phash_similarity(frame1: np.ndarray,
     hamming_distance = hash1 - hash2
     return hamming_distance
 
-def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: List[str],
-                                      embedding_values: List[np.ndarray], 
-                                      thresholds: Dict[str, Optional[float]]) -> Tuple[List[Tuple[np.ndarray, np.ndarray]], List[float]]:
+def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: List[str],embedding_values: List[np.ndarray],thresholds: Dict[str, Optional[float]]) -> Tuple[List[Tuple[np.ndarray, np.ndarray]], List[float]]:
     args = parse_args()
     config = {
-        "local": generate_config("./datasets"),
-    }
+        "local": generate_config("./datasets"),}
     selected_config = config[args.mode]
     frame_embedding_pairs = []
     timestamps = []
@@ -94,8 +88,6 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
                 frame_embedding_pairs.append((frame, embedding))
                 timestamps.append(timestamp)
             vid_cap.release()
-            
-        # Apply phash filtering
         if thresholds['phash_threshold'] is not None:
             frames = [frame for frame, _ in frame_embedding_pairs]
             filtered_timestamps = filter_keyframes_based_on_phash(frames, timestamps, thresholds)
@@ -104,7 +96,6 @@ def get_segmented_and_filtered_frames(video_files: List[str], keyframe_files: Li
             delete_associated_files(video_id, selected_config)
             print(f"No keyframes remaining after filtering for video ID {video_id}. Associated files deleted.")
             return [], []
-        # Check to ensure lengths match
         if len(frame_embedding_pairs) != len(timestamps):
             delete_associated_files(video_id, selected_config)
             print("Mismatch in the number of frames and timestamps after filtering.")

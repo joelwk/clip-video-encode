@@ -9,7 +9,8 @@ import glob
 import subprocess
 import traceback
 import re
-
+import io
+from pydub import AudioSegment
 from evaluations.pipeline_eval import modify_hook_file
 
 import pandas as pd
@@ -21,9 +22,7 @@ try:
     import torch
     from PIL import Image
 except ImportError as e:
-    # Extract the traceback
     tb = traceback.format_exc()
-    # Use regex to find the file path of hook.py
     match = re.search(r'File "(.*?/laion_clap/hook\.py)", line \d+, in', tb)
     if match:
         hook_file_path = match.group(1)
@@ -106,19 +105,24 @@ def sort_and_store_scores(probabilities, labels):
     sorted_scores = dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
     return sorted_scores
 
+def get_video_ids(directory):
+    all_items = os.listdir(directory)
+    video_ids = [item for item in all_items if os.path.isdir(os.path.join(directory, item)) and re.match(r'^\d+\.\d+$', item)]
+    return video_ids
+
 def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     keyframe_filenames = [f for f in os.listdir(faces_dir) if f.endswith('.png')]
     for keyframe_filename in keyframe_filenames:
-        segment_match = re.search(r'keyframe_(\d+)_', keyframe_filename)
+        segment_match = re.search(r'keyframe_(\d+)', keyframe_filename)
         video_match = faces_dir.split('/')[-1]
         video_match = re.search(r'(\d+)', video_match)
         video_idx = int(video_match.group(1))
         if segment_match:
             segment_idx = int(segment_match.group(1))
-            audio_filename = f"segment_{segment_idx}__keyframe.flac"
-            text_filename = f"video_{video_idx}_keyframe_audio_clip_{segment_idx}.txt"
+            audio_filename = f"keyframe_{segment_idx}.flac"
+            text_filename = f"keyframe_{segment_idx}.txt"
             audio_path = os.path.join(audio_dir, audio_filename)
             text_path = os.path.join(audio_dir, text_filename)
             image_path = os.path.join(faces_dir, keyframe_filename)
@@ -171,19 +175,23 @@ def prepare_audio_labels():
     if not os.path.exists('clap-audioset-probe/clap-probe.pkl') or not os.path.exists('clap-audioset-probe/clap-probe.csv'):
         print("Required files not found. Cloning repository...")
         subprocess.run(["git", "clone", "https://github.com/MichaelALong/clap-audioset-probe"])
-    # Load the model
     with open('clap-audioset-probe/clap-probe.pkl', 'rb') as f:
         multioutput_model = pickle.load(f)
-    # Load the metrics
     dfmetrics = pd.read_csv("clap-audioset-probe/clap-probe.csv")
     dfmetrics = dfmetrics.sort_values("model_order")
     model_order_to_group_name = pd.Series(dfmetrics.group_name.values, index=dfmetrics.model_order).to_dict()
     return multioutput_model, model_order_to_group_name, dfmetrics
     
 def get_audio_embeddings(audio_path, model_clap):
-    audio_files = sorted([f for f in glob.glob(audio_path + '/**/*.mp3', recursive=True) if re.search(r'segment_\d+__keyframe(_vocals)?\.mp3$', f)])
+    print(f"Scanning {audio_path} for audio files...")
+    keyframe_pattern = r'keyframe_\d+(_vocals)?\.mp3$'
+    audio_files = sorted([
+        f for f in glob.glob(audio_path + '/**/*.mp3', recursive=True)
+        if re.search(keyframe_pattern, f)])
+    print(f"Found {len(audio_files)} audio files matching the patterns.")
     embeddings = []
     for input_file in audio_files:
+        print(f"Processing {input_file}...")
         audio_embed = model_clap.get_audio_embedding_from_filelist([input_file], use_tensor=True)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         audio_embed = audio_embed.to(device)
@@ -194,7 +202,6 @@ def get_audio_embeddings(audio_path, model_clap):
 def get_embeddings(model_clip, tokenizer, config_path=config_path):
     evals = read_config('evaluations')
     labels = read_config('labels')
-    
     emotions = format_labels(labels, 'emotions')
     check_if_person_list = format_labels(labels, 'checkifperson')
     number_of_faces_list = format_labels(labels, 'numberoffaces')
@@ -202,7 +209,6 @@ def get_embeddings(model_clip, tokenizer, config_path=config_path):
     orientation_labels_list = format_labels(labels, 'orientationlabels')
     check_type_person_list = format_labels(labels, 'checktypeperson')
     valence_list = format_labels(labels, 'valence')
-
     text_features = generate_embeddings(tokenizer, model_clip, emotions, f"{evals['embeddings']}/text_features.npy")
     text_features_if_person = generate_embeddings(tokenizer, model_clip, check_if_person_list, f"{evals['embeddings']}/text_features_if_person.npy")
     text_features_type_person = generate_embeddings(tokenizer, model_clip, check_type_person_list, f"{evals['embeddings']}/text_features_type_person.npy")
@@ -210,3 +216,39 @@ def get_embeddings(model_clip, tokenizer, config_path=config_path):
     text_features_orientation = generate_embeddings(tokenizer, model_clip, orientation_labels_list, f"{evals['embeddings']}/text_features_orientation.npy")
     text_features_if_engaged = generate_embeddings(tokenizer, model_clip, engagement_labels_list, f"{evals['embeddings']}/text_features_if_engaged.npy")
     text_features_valence = generate_embeddings(tokenizer, model_clip, valence_list, f"{evals['embeddings']}/text_valence.npy")
+
+def process_files(sample):
+    result = {}
+    for key, value in sample.items():
+        if key.endswith("json"):
+            result[key] = json.loads(value)
+        elif key.endswith("npy"):
+            result[key] = np.load(io.BytesIO(value))
+        elif key.endswith(".png"):
+            result[key] = Image.open(io.BytesIO(value)).convert("RGB")
+        elif key.endswith("m4a") or key.endswith("flac"):
+            audio_format = "m4a" if key.endswith("m4a") else "flac"
+            audio_file = io.BytesIO(value)
+            try:
+                result[key] = AudioSegment.from_file(audio_file, format=audio_format)
+            except Exception as e:
+                print(f"Error processing {key}: {e}")
+        elif key.endswith("txt"):
+            try:
+                text_content = value.decode('utf-8') 
+                result[key] = text_content
+            except Exception as e:
+                print(f"Error decoding {key}: {e}")
+    return result
+
+def save_whisper_segment(audio_segment, text_content, whisper_segment_dir, segment_key):
+    if not os.path.exists(whisper_segment_dir):
+        os.makedirs(whisper_segment_dir)
+    audio_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.flac")
+    audio_segment.export(audio_destination_path, format="flac")
+    print(f"Copied whisper audio segment to {audio_destination_path}")
+    if text_content:
+        text_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.txt")
+        with open(text_destination_path, "w", encoding="utf-8") as text_file:
+            text_file.write(text_content)
+        print(f"Saved associated text file to {text_destination_path}")

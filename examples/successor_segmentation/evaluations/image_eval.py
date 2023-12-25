@@ -7,10 +7,24 @@ import argparse
 import numpy as np
 import glob
 import torch
+import webdataset as wds
+import json
+import numpy as np
+from PIL import Image
+import io
+import glob
+import os
+import re
+from webdataset import ShardWriter
+from pydub import AudioSegment
+from io import BytesIO
+import ast
+
 from evaluations.prepare import (
     read_config, generate_embeddings, format_labels,
     remove_duplicate_extension, process_keyframe_audio_pairs, get_embeddings, model_clip, 
-    display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,load_key_image_files, load_key_audio_files, get_all_video_ids
+    display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,
+    load_key_image_files, load_key_audio_files, get_all_video_ids,process_files, save_whisper_segment
 )
     
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
@@ -29,7 +43,12 @@ def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
     # Return True if the image meets the criteria for being "Good"
     return is_person_detected and single_face_detected and facing_forward and engaged
 
-def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=False):
+def zeroshot_classifier(image_path, video_identifier, output_dir, key=None, display_image=False):
+    if key is None:
+        key = image_path
+        image_path = Image.open(image_path)
+        output_dir = os.path.join(output_dir, str(video_identifier))
+
     params = read_config(section="evaluations")
     labels = read_config("labels")
     model, preprocess_train, preprocess_val, tokenizer = model_clip()
@@ -54,12 +73,11 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     text_features_valence = np.load(text_features_valence_path)
     
     # Set up the output directory for processed images
-    run_output_dir = os.path.join(output_dir, video_identifier)
+    run_output_dir = os.path.join(output_dir)
     os.makedirs(run_output_dir, exist_ok=True)
     
     # Load and preprocess the image
-    img = Image.open(image_path)
-    image_preprocessed = preprocess_val(img).unsqueeze(0)
+    image_preprocessed = preprocess_val(image_path).unsqueeze(0)
 
     # Encode the image using the CLIP model and normalize the features
     image_preprocessed = image_preprocessed.to('cuda' if torch.cuda.is_available() else 'cpu')
@@ -77,7 +95,8 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
     text_score_emotions = image_features @ text_features.T
     text_probs_valence = softmax(float(params['scalingfactor']) * image_features @ text_features_valence.T)
     face_detected = is_good_image(is_person_probs[0], face_probs[0], orientation_probs[0], engagement_probs[0])
-
+    display(image_path)
+    print(face_detected)
     if face_detected:
         if display_image:
             display_image_from_file(image_path)
@@ -88,12 +107,16 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             print_top_n(engagement_probs[0], format_labels(labels, 'engagementlabels'))
             print_top_n(text_probs_emotions[0], format_labels(labels, 'emotions'))
             print_top_n(text_probs_valence[0], format_labels(labels, 'valence'))
-            
-        filename = os.path.basename(image_path)
+        
+        filename = os.path.basename(key)
+        print(filename)
         filename_without_ext = filename.split('.')[0]
         filename = remove_duplicate_extension(filename)
+        if len(filename.split('_')) > 2:
+            filename = filename.split('_')[0] + '_' + filename.split('_')[1] + '.png'
+        print(filename)
         save_path = os.path.join(run_output_dir, filename)
-        img.save(save_path)
+        image_path.save(save_path)
         sorted_type_person_scores = sort_and_store_scores(type_person_probs[0], format_labels(labels, 'checktypeperson'))
         sorted_emotions = sort_and_store_scores(text_probs_emotions[0], format_labels(labels, 'emotions'))
         sorted_emotions_scores = sort_and_store_scores(text_score_emotions[0], format_labels(labels, 'emotions'))
@@ -106,6 +129,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
             "emotions_probs": sorted_emotions,
             "emotions_scores":sorted_emotions_scores,
             "valence": sorted_valence}
+        filename_without_ext = filename_without_ext.split('_')[0] + '_' + filename_without_ext.split('_')[1]
         json_filename = filename_without_ext + '.json'
         with open(os.path.join(run_output_dir, json_filename), 'w') as json_file:
             json.dump(json_data, json_file, indent=4)
@@ -114,7 +138,7 @@ def zeroshot_classifier(image_path, video_identifier, output_dir, display_image=
         return True 
     return False 
 
-def main():
+def process_from_directory():
     params = read_config(section="evaluations")
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
@@ -122,16 +146,16 @@ def main():
             face_detected_in_video = False
             keyframes = load_key_image_files(video, params)
             for keyframe in keyframes:
-                if zeroshot_classifier(keyframe, str(video), os.path.join(params['outputs'], "image_evaluations"), display_image=False):
+                if zeroshot_classifier(keyframe, video, os.path.join(params['outputs'], "image_evaluations"), key=None, display_image=False):
                     face_detected_in_video = True
-            if not face_detected_in_video:  
-                video_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
-                if os.path.exists(video_dir):
-                    shutil.rmtree(video_dir)
-                    video__original_dir = os.path.join(params['completedatasets'], str(video))
-                    shutil.rmtree(video__original_dir)
-                    print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
-                continue
+                if not face_detected_in_video:  
+                    video_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
+                    if os.path.exists(video_dir):
+                        shutil.rmtree(video_dir)
+                        video__original_dir = os.path.join(params['completedatasets'], str(video))
+                        shutil.rmtree(video__original_dir)
+                        print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
+                    continue
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
             output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
             audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips", "whisper_audio_segments")
@@ -139,5 +163,55 @@ def main():
         except Exception as e:
             print(f"Failed to process images and pair with audio for video {video}: {e}")
 
+def process_from_wds():
+    params = read_config(section="evaluations")
+    dataset_paths = [f"{params['wds_dir']}/completed_datasets-{i:06d}.tar" for i in range(1)]
+    dataset = wds.WebDataset(dataset_paths).map(process_files)
+    whisper_segments = {} 
+    text_segments = {}
+    for sample in dataset:
+        video_id = sample['__key__'].split('/')[0]
+        image_dir = os.path.join(params['outputs'], "image_evaluations", video_id)
+        output_dir = os.path.join(params['outputs'], "image_audio_pairs", video_id)
+        face_detected_in_video = False  # Initialize a variable to track if a face is detected
+        for key, value in sample.items():
+            if key.endswith('flac') and isinstance(value, AudioSegment):
+                segment_key = sample['__key__']
+                segment_match = re.search(r'keyframe_(\d+)', segment_key)
+                if segment_match:
+                    segment_id = segment_match.group(1)
+                    whisper_segments[segment_id] = value
+        for key, value in sample.items():
+            if key.endswith('txt'):
+                segment_key = sample['__key__']
+                segment_match = re.search(r'keyframe_(\d+)', segment_key)
+                if segment_match:
+                    segment_id = segment_match.group(1)
+                    try:
+                        text_content = value
+                        text_segments[segment_id] = text_content
+                    except UnicodeDecodeError as e:
+                        print(f"Error decoding text for segment {segment_id}: {e}")
+        for key, value in sample.items():
+            if key.endswith('png') and isinstance(value, Image.Image):
+                print(key)
+                keyframe_match = re.search(r'keyframe_(\d+)_timestamp', sample['__key__'])
+                if keyframe_match:
+                    keyframe_id = keyframe_match.group(1)
+                    print(f"Keyframe ID: {keyframe_id}")
+                    keyframe_filename = f"keyframe_{keyframe_id}.png"
+                    if zeroshot_classifier(value, video_id, image_dir, key=keyframe_filename, display_image=False):
+                        face_detected_in_video = True
+                        if keyframe_id in whisper_segments:
+                            audio_segment = whisper_segments[keyframe_id]
+                            text_content = text_segments.get(keyframe_id, "")
+                            save_whisper_segment(audio_segment, text_content, output_dir, f"keyframe_{keyframe_id}")
+                            print(f"Paired keyframe {keyframe_id} with its whisper segment and text")
+def main():
+    params = read_config(section="config_params")
+    if params['mode'] == 'directory':
+        process_from_directory()
+    elif params['mode'] == 'wds':
+        process_from_wds()
 if __name__ == '__main__':
     main()

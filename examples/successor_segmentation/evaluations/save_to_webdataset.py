@@ -34,7 +34,6 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
                         buffer = BytesIO(f.read())
                         assert isinstance(buffer, BytesIO)
                         sample[category] = buffer.getvalue()
-
     with ShardWriter(pattern, maxsize=shard_size) as sink:
         for i, dataset_folder in enumerate(dataset_folders):
             sample = {}

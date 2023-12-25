@@ -65,7 +65,6 @@ class SegmentSuccessorAnalyzer:
                     continue
                 current_timestamp = timestamps[initial_new_segments[i]]
                 if (current_timestamp - last_timestamp) > self.max_segment_duration:
-                    # Check if index is within bounds
                     if i-1 < 0 or i+1 > len(timestamps):
                         print(f"Index out of bounds during segment calculation at indices {i-1} and {i+1}. Skipping this segment.")
                         continue
@@ -196,7 +195,6 @@ def run_analysis(analyzer_class, specific_videos=None):
                 raise ValueError(f"No keyframes found after processing video {video}.")
         except ValueError as e:
             logging.warning(f"Error occurred for video {video}: {e}.")
-            continue  # Skip to the next video
-
+            continue
     if not video_ids:
         print("All videos processed. Stopping script.")
