@@ -15,11 +15,11 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
         for item in os.listdir(folder_path):
             item_path = os.path.join(folder_path, item)
             if os.path.isdir(item_path):
-                new_key = f"{parent_key}/{item}"
+                new_key = f"{parent_key}/{item}" if parent_key else item
                 recursive_add_files(item_path, sample, new_key)
             else:
-                category = f"{parent_key}/{item}"
-                extension = os.path.splitext(item)[-1][1:] 
+                category = f"{parent_key}/{item}" if parent_key else item
+                extension = os.path.splitext(item)[-1][1:]
                 if extension == 'npy':
                     array = np.load(item_path)
                     assert isinstance(array, np.ndarray)
