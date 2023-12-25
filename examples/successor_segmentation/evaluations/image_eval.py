@@ -19,12 +19,13 @@ from webdataset import ShardWriter
 from pydub import AudioSegment
 from io import BytesIO
 import ast
+import warnings
 
 from evaluations.prepare import (
     read_config, generate_embeddings, format_labels,
     remove_duplicate_extension, process_keyframe_audio_pairs, get_embeddings, model_clip, 
     display_image_from_file, print_top_n, normalize_scores, softmax, sort_and_store_scores,
-    load_key_image_files, load_key_audio_files, get_all_video_ids,process_files, save_whisper_segment
+    load_key_image_files, load_key_audio_files, get_all_video_ids,process_files, move_paired
 )
     
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
@@ -162,13 +163,13 @@ def process_from_wds():
     params = read_config(section="evaluations")
     dataset_paths = [f"{params['wds_dir']}/completed_datasets-{i:06d}.tar" for i in range(1)]
     dataset = wds.WebDataset(dataset_paths).map(process_files)
-    whisper_segments = {} 
+    whisper_segments = {}
     text_segments = {}
     for sample in dataset:
         video_id = sample['__key__'].split('/')[0]
         image_dir = os.path.join(params['outputs'], "image_evaluations", video_id)
         output_dir = os.path.join(params['outputs'], "image_audio_pairs", video_id)
-        face_detected_in_video = False  # Initialize a variable to track if a face is detected
+        face_detected_in_video = False
         for key, value in sample.items():
             if key.endswith('flac') and isinstance(value, AudioSegment):
                 segment_key = sample['__key__']
@@ -176,7 +177,6 @@ def process_from_wds():
                 if segment_match:
                     segment_id = segment_match.group(1)
                     whisper_segments[segment_id] = value
-        for key, value in sample.items():
             if key.endswith('txt'):
                 segment_key = sample['__key__']
                 segment_match = re.search(r'keyframe_(\d+)', segment_key)
@@ -187,21 +187,21 @@ def process_from_wds():
                         text_segments[segment_id] = text_content
                     except UnicodeDecodeError as e:
                         print(f"Error decoding text for segment {segment_id}: {e}")
-        for key, value in sample.items():
             if key.endswith('png') and isinstance(value, Image.Image):
-                print(key)
                 keyframe_match = re.search(r'keyframe_(\d+)_timestamp', sample['__key__'])
                 if keyframe_match:
                     keyframe_id = keyframe_match.group(1)
-                    print(f"Keyframe ID: {keyframe_id}")
                     keyframe_filename = f"keyframe_{keyframe_id}.png"
                     if zeroshot_classifier(value, video_id, image_dir, key=keyframe_filename, display_image=False):
                         face_detected_in_video = True
                         if keyframe_id in whisper_segments:
                             audio_segment = whisper_segments[keyframe_id]
                             text_content = text_segments.get(keyframe_id, "")
-                            save_whisper_segment(audio_segment, text_content, output_dir, f"keyframe_{keyframe_id}")
+                            move_paired(audio_segment, text_content, output_dir, f"keyframe_{keyframe_id}")
+                            paired_png = os.path.join(image_dir, keyframe_filename)
+                            shutil.copy(paired_png, output_dir)
                             print(f"Paired keyframe {keyframe_id} with its whisper segment and text")
+                            
 def main():
     params = read_config(section="config_params")
     if params['mode'] == 'directory':

@@ -235,15 +235,14 @@ def process_files(sample):
                 print(f"Error processing {key}: {e}")
         elif key.endswith("txt"):
             try:
-                text_content = value.decode('utf-8') 
+                text_content = value.decode('utf-8')
                 result[key] = text_content
             except Exception as e:
                 print(f"Error decoding {key}: {e}")
     return result
 
-def save_whisper_segment(audio_segment, text_content, whisper_segment_dir, segment_key):
-    if not os.path.exists(whisper_segment_dir):
-        os.makedirs(whisper_segment_dir)
+def move_paired(audio_segment, text_content, whisper_segment_dir, segment_key):
+    os.makedirs(whisper_segment_dir, exist_ok=True)
     audio_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.flac")
     audio_segment.export(audio_destination_path, format="flac")
     print(f"Copied whisper audio segment to {audio_destination_path}")

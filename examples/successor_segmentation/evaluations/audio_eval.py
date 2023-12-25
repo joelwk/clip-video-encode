@@ -195,7 +195,7 @@ def main():
             print(f"An unexpected error occurred for video {video}: {e}")
             # Cleanup this video
            # shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
-           # shutil.rmtree(output_path)
+            shutil.rmtree(output_path)
             continue
     print("All videos processed.")
 if __name__ == '__main__':

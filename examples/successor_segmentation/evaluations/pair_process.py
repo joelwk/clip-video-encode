@@ -5,8 +5,8 @@ import shutil
 import numpy as np
 import re
 
-from prepare import (
-    model_clap, prepare_audio_labels,read_config, format_labels, softmax,get_all_video_ids,normalize_scores)
+from evaluations.prepare import (
+    model_clap, prepare_audio_labels,read_config, format_labels, softmax,get_all_video_ids,normalize_scores,get_video_ids)
 
 def normalize_vectors(vectors):
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
@@ -116,7 +116,12 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
 
 def main():
     params = read_config(section="evaluations")
-    video_ids = get_all_video_ids(params['completedatasets'])
+    config_params = read_config(section="config_params")
+    if config_params['mode'] == 'directory':
+        video_ids = get_all_video_ids(params['completedatasets'])
+    else:
+        config_params['mode'] == 'wds'
+        video_ids = get_video_ids('./evaluations/image_evaluations/')
     for video in video_ids:
         audio_directory = f"./evaluations/audio_evaluations/{str(video)}"
         json_image_directory = f"./evaluations/image_evaluations/{str(video)}"
