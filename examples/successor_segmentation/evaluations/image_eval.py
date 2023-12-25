@@ -161,7 +161,7 @@ def process_from_directory():
 
 def process_from_wds():
     params = read_config(section="evaluations")
-    dataset_paths = [f"{params['wds_dir']}/completed_datasets-{i:06d}.tar" for i in range(1)]
+    dataset_paths =  glob.glob(f"{params['wds_dir']}/completed_datasets-*.tar")
     dataset = wds.WebDataset(dataset_paths).map(process_files)
     whisper_segments = {}
     text_segments = {}

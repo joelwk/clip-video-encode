@@ -17,33 +17,26 @@ def convert_audio_files(base_path, output_format="mp3"):
             for filename in files:
                 file_path = os.path.join(subdir, filename)
                 if filename.endswith(".flac"):
-                    # Extract segment index and video identifier
                     segment_info = filename.split('_')
                     if len(segment_info) >= 4 and segment_info[0] == 'video' and segment_info[2] == 'keyframe':
                         video_id = segment_info[1]
-                        segment_idx = segment_info[3].split('.')[0]  # Removing the file extension
-                        # Construct the output filename
-                        output_filename = f"video_{video_id}_keyframe_audio_clip_{segment_idx}.{output_format}"
+                        segment_idx = segment_info[3].split('.')[0]
+                        output_filename = f"keyframe_audio_clip_{segment_idx}.{output_format}"
                         output_path = os.path.join(audio_clip_output_dir, output_filename)
-                        # Convert and overwrite check
                         if os.path.exists(output_path):
                             print(f"File {output_path} already exists. Overwriting.")
                         audio = AudioSegment.from_file(file_path, format="flac")
                         audio.export(output_path, format=output_format)
                         print(f"Converted {file_path} to {output_path}")
-                        # Remove original .flac file
                         os.remove(file_path)
                         print(f"Removed {file_path}")
-
                 elif filename.endswith(".json"):
-                    # Process JSON files
                     new_json_path = os.path.join(audio_clip_output_dir, filename)
                     if file_path != new_json_path:
                         shutil.copy(file_path, new_json_path)
                         print(f"Copied {file_path} to {new_json_path}")
                     else:
                         print(f"File {new_json_path} is the same as the source. Skipping copy.")
-                    # Process text files from JSON data
                     with open(new_json_path, 'r', encoding='utf-8') as json_file:
                         try:
                             segments_data = json.load(json_file)
@@ -54,8 +47,7 @@ def convert_audio_files(base_path, output_format="mp3"):
                             for segment_data in segments_data:
                                 if isinstance(segment_data, dict) and "segment_idx" in segment_data:
                                     segment_idx = segment_data["segment_idx"]
-                                    # Construct text filename
-                                    text_filename = f"video_{n}_keyframe_audio_clip_{segment_idx}.txt"
+                                    text_filename = f"keyframe_{segment_idx}.txt"
                                     text_path = os.path.join(audio_clip_output_dir, text_filename)
                                     with open(text_path, 'w', encoding='utf-8') as text_file: 
                                         text_file.write(segment_data.get("text", ""))

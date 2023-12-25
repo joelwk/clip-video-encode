@@ -127,3 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+examples/successor_segmentation/dataset_requirements_1.parquet
+examples/successor_segmentation/dataset_requirements_2.parquet

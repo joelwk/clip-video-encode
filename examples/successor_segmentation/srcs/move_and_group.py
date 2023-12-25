@@ -14,11 +14,8 @@ def move_and_group_files(directories):
         'keyframes': directories['keyframe_outputs'],
         'keyframe_clip_embeddings': directories['keyframe_clip_embeddings_outputs'],
     }
-    
-    # Define the destination directory where files will be moved to
     dest_dir = './completedatasets'
     os.makedirs(dest_dir, exist_ok=True)
-    # Initialize a dictionary to store integer suffixes for each category
     integer_suffixes = {}
     invalid_suffixes = set()  # To track video IDs with missing/empty files
     for category, src_directory in src_dirs.items():
@@ -38,8 +35,6 @@ def move_and_group_files(directories):
                     invalid_suffixes.add(integer_suffix)
                 else:
                     integer_suffixes.setdefault(integer_suffix, []).append((category, file_path))
-                    
-    # Process valid files and delete invalid ones
     for integer_suffix, file_tuples in integer_suffixes.items():
         if integer_suffix in invalid_suffixes:
             print(f"Deleting files for video ID {integer_suffix} due to missing or empty files.")

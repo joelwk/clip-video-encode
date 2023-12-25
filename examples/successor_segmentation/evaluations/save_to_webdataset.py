@@ -15,25 +15,25 @@ def package_datasets_to_webdataset(root_folder, output_folder, shard_size=1e9):
         for item in os.listdir(folder_path):
             item_path = os.path.join(folder_path, item)
             if os.path.isdir(item_path):
-                new_key = f"{parent_key}/{item}" if parent_key else item
+                new_key = f"{parent_key}/{item}" if not item.startswith(parent_key) else item
                 recursive_add_files(item_path, sample, new_key)
             else:
-                category = f"{parent_key}/{item}" if parent_key else item
                 extension = os.path.splitext(item)[-1][1:]
+                key_for_file = f"{parent_key}/{item}" if parent_key and not item.startswith(parent_key) else item
                 if extension == 'npy':
                     array = np.load(item_path)
                     assert isinstance(array, np.ndarray)
-                    sample[category] = array
+                    sample[key_for_file] = array
                 elif extension == 'json':
                     with open(item_path, 'r') as f:
                         json_data = json.load(f)
                         assert isinstance(json_data, (list, dict))
-                        sample[category] = json_data
+                        sample[key_for_file] = json_data
                 else:
                     with open(item_path, 'rb') as f:
                         buffer = BytesIO(f.read())
                         assert isinstance(buffer, BytesIO)
-                        sample[category] = buffer.getvalue()
+                        sample[key_for_file] = buffer.getvalue()
     with ShardWriter(pattern, maxsize=shard_size) as sink:
         for i, dataset_folder in enumerate(dataset_folders):
             sample = {}
