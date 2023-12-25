@@ -10,7 +10,6 @@ def modify_hook_file(hook_file_path):
         try:
             with open(hook_file_path, 'r') as file:
                 lines = file.readlines()
-
             with open(hook_file_path, 'w') as file:
                 for line in lines:
                     if "from training.data import get_audio_features" in line:

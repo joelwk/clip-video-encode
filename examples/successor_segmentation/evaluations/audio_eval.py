@@ -93,40 +93,14 @@ def separate_audio(input_dir, processed_dir, max_duration_ms, model="htdemucs", 
     else:
         print(stdout.decode())
 
-def find_and_move_highest_scoring_files(json_dir, processed_dir):
-    processed_clips = set()
-    keyframe_pattern = r'keyframe_(\d+?)((_vocals)?\.json)$'
-    for json_file in sorted(glob.glob(os.path.join(json_dir, '*.json'))):
-        base_name = os.path.basename(json_file)
-        keyframe_match = re.search(keyframe_pattern, base_name)
-        if keyframe_match:
-            clip_id = keyframe_match.group(1)
-            is_vocals = keyframe_match.group(2) is not None
-            if clip_id in processed_clips:
-                continue
-            base_file_name = f'{clip_type}_{clip_id}'
-            vocals_suffix = '_vocals' if is_vocals else ''
-            regular_file = f'{base_file_name}.json'
-            vocals_file = f'{base_file_name}{vocals_suffix}.json'
-            regular_score = get_score(os.path.join(json_dir, regular_file))
-            vocals_score = get_score(os.path.join(json_dir, vocals_file))
-            is_vocals = vocals_score > regular_score
-            chosen_suffix = vocals_suffix
-            mp3_file = f'{base_file_name}{chosen_suffix}.mp3'
-            json_file = f'{base_file_name}{chosen_suffix}.json'
-            npy_file = f'{base_file_name}{chosen_suffix}_audio_features.npy'
-            move_specific_file(json_dir, processed_dir, mp3_file)
-            move_specific_file(json_dir, processed_dir, json_file)
-            move_specific_file(json_dir, processed_dir, npy_file)
-            processed_clips.add(clip_id)
-
 def get_score(file_path):
     """Extracts the 'Human speech' score from the given JSON file."""
-    if os.path.exists(file_path):
+    try:
         with open(file_path, 'r') as file:
             data = json.load(file)
-            return data.get("audio_classification", {}).get("Human speech", 0)
-    return 0
+        return data.get("audio_classification", {}).get("Human speech", 0)
+    except FileNotFoundError:
+        return 0
 
 def move_specific_file(source_dir, destination_dir, file_name):
     """Moves a specific file from the source to the destination directory."""
@@ -134,9 +108,29 @@ def move_specific_file(source_dir, destination_dir, file_name):
     destination_path = os.path.join(destination_dir, file_name)
     if os.path.exists(source_path):
         os.rename(source_path, destination_path)
-        print(f"Moved {file_name} to {destination_dir}")
+        print(f"Moved {file_name} to {destination_path}")
     else:
         print(f"File does not exist: {source_path}")
+
+def find_and_move_highest_scoring_files(json_dir, processed_dir):
+    processed_clips = set()
+    keyframe_pattern = r'keyframe_(\d+?)(_vocals)?\.json$'
+    for json_file in sorted(glob.glob(os.path.join(json_dir, '*.json'))):
+        base_name = os.path.basename(json_file)
+        keyframe_match = re.search(keyframe_pattern, base_name)
+        if keyframe_match and keyframe_match.group(1) not in processed_clips:
+            clip_id = keyframe_match.group(1)
+            is_vocals = keyframe_match.group(2) is not None
+            base_file_name = f'keyframe_{clip_id}'
+            regular_file = f'{base_file_name}.json'
+            vocals_file = f'{base_file_name}_vocals.json' if is_vocals else regular_file
+            regular_score = get_score(os.path.join(json_dir, regular_file))
+            vocals_score = get_score(os.path.join(json_dir, vocals_file)) if is_vocals else 0
+            chosen_suffix = '_vocals' if vocals_score > regular_score else ''
+            files_to_move = [f'{base_file_name}{chosen_suffix}.mp3', f'{base_file_name}{chosen_suffix}.json', f'{base_file_name}{chosen_suffix}_audio_features.npy']
+            for file_name in files_to_move:
+                move_specific_file(json_dir, os.path.dirname(json_dir), file_name)
+            processed_clips.add(clip_id)
       
 def zeroshot_classifier_audio(output_dir):
     try:
@@ -182,7 +176,6 @@ def main():
     else:
         config_params['mode'] == 'wds'
         video_ids = get_video_ids('./evaluations/image_evaluations/')
-        
     for video in video_ids:
         try:
             in_path = f"./evaluations/image_audio_pairs/{str(video)}"
@@ -201,8 +194,8 @@ def main():
         except Exception as e:
             print(f"An unexpected error occurred for video {video}: {e}")
             # Cleanup this video
-            shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
-            shutil.rmtree(output_path)
+           # shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
+           # shutil.rmtree(output_path)
             continue
     print("All videos processed.")
 if __name__ == '__main__':
