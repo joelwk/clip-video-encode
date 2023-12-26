@@ -133,8 +133,7 @@ def run_video2dataset_with_yt_dlp(directory, output):
             '--url_list', url_list,
             '--encode_formats', '{"video": "mp4", "audio": "m4a"}',
             '--output_folder', output,
-            '--config', './clip-video-encode/examples/successor_segmentation/config.yaml'
-        ] 
+            '--config', './clip-video-encode/examples/successor_segmentation/config.yaml'] 
         result = subprocess.run(command, capture_output=True, text=True)
         print("Return code:", result.returncode)
         print("STDOUT:", result.stdout)
