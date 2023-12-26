@@ -43,7 +43,8 @@ def convert_audio_files(input_directory, output_directory, output_format="flac")
 
 def segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_data, duration, suffix_=None):
     os.makedirs(audio_clip_output_dir, exist_ok=True)
-    output_aligned = [{'segment_idx': idx, 'timestamp': [keyframe['time_frame'], keyframe['time_frame'] + int(duration/1000)]} for idx, keyframe in keyframe_data.items()]
+    duration = int(duration/1000)
+    output_aligned = [{'segment_idx': idx, 'timestamp': [keyframe['time_frame'], keyframe['time_frame'] + duration]} for idx, keyframe in keyframe_data.items()]
     for segment in output_aligned:
         start_time = segment['timestamp'][0]
         adjusted_start_time = start_time
@@ -194,3 +195,10 @@ def process_entire_audio(audio_path, full_audio_clip_output_dir, evaluations):
     if not os.path.exists(full_audio_clip_output_dir):
         os.makedirs(full_audio_clip_output_dir)
     full_audio_transcription_pipeline(audio_path, full_audio_clip_output_dir, evaluations)
+
+
+def main():
+    process_audio_files()
+
+if __name__ == '__main__':
+    main()

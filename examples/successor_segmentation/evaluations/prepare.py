@@ -52,7 +52,7 @@ def load_key_image_files(vid, params):
     return iter(sorted(glob.glob(pattern)))
 
 def load_key_audio_files(vid, params):
-    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.flac")
+    pattern = os.path.join(params['completedatasets'], str(vid), "keyframe_audio_clips", "whisper_audio_segments", "*.mp3")
     return iter(sorted(glob.glob(pattern)))
 
 def get_all_video_ids(directory):
@@ -113,6 +113,9 @@ def get_video_ids(directory):
 def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    audio_dir = os.path.join(audio_dir, "whisper_audio_segments")
+    text_dir_whisper = os.path.join(audio_dir, "whisper_text_segments")
+    text_dir_yt = os.path.join(audio_dir, "yt_audio_segments")
     keyframe_filenames = [f for f in os.listdir(faces_dir) if f.endswith('.png')]
     for keyframe_filename in keyframe_filenames:
         segment_match = re.search(r'keyframe_(\d+)', keyframe_filename)
@@ -121,7 +124,7 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
         video_idx = int(video_match.group(1))
         if segment_match:
             segment_idx = int(segment_match.group(1))
-            audio_filename = f"keyframe_{segment_idx}.flac"
+            audio_filename = f"keyframe_{segment_idx}.mp3"
             text_filename = f"keyframe_{segment_idx}.txt"
             audio_path = os.path.join(audio_dir, audio_filename)
             text_path = os.path.join(audio_dir, text_filename)
@@ -226,8 +229,8 @@ def process_files(sample):
             result[key] = np.load(io.BytesIO(value))
         elif key.endswith(".png"):
             result[key] = Image.open(io.BytesIO(value)).convert("RGB")
-        elif key.endswith("m4a") or key.endswith("flac"):
-            audio_format = "m4a" if key.endswith("m4a") else "flac"
+        elif key.endswith("m4a") or key.endswith("flac") or key.endswith("mp3"):
+            audio_format = "m4a" if key.endswith("m4a") else ("flac" if key.endswith("flac") else "mp3")
             audio_file = io.BytesIO(value)
             try:
                 result[key] = AudioSegment.from_file(audio_file, format=audio_format)
@@ -243,8 +246,8 @@ def process_files(sample):
 
 def move_paired(audio_segment, text_content, whisper_segment_dir, segment_key):
     os.makedirs(whisper_segment_dir, exist_ok=True)
-    audio_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.flac")
-    audio_segment.export(audio_destination_path, format="flac")
+    audio_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.mp3")
+    audio_segment.export(audio_destination_path, format="mp3")
     print(f"Copied whisper audio segment to {audio_destination_path}")
     if text_content:
         text_destination_path = os.path.join(whisper_segment_dir, f"{segment_key}.txt")

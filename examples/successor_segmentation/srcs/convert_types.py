@@ -15,22 +15,21 @@ def convert_audio_files(base_path, output_format="mp3"):
 
         for subdir, dirs, files in os.walk(audio_clip_output_dir):
             for filename in files:
+                print('filename', filename)
                 file_path = os.path.join(subdir, filename)
-                if filename.endswith(".flac"):
-                    segment_info = filename.split('_')
-                    if len(segment_info) >= 4 and segment_info[0] == 'video' and segment_info[2] == 'keyframe':
-                        video_id = segment_info[1]
-                        segment_idx = segment_info[3].split('.')[0]
-                        output_filename = f"keyframe_audio_clip_{segment_idx}.{output_format}"
-                        output_path = os.path.join(audio_clip_output_dir, output_filename)
-                        if os.path.exists(output_path):
-                            print(f"File {output_path} already exists. Overwriting.")
-                        audio = AudioSegment.from_file(file_path, format="flac")
-                        audio.export(output_path, format=output_format)
-                        print(f"Converted {file_path} to {output_path}")
-                        os.remove(file_path)
-                        print(f"Removed {file_path}")
-                elif filename.endswith(".json"):
+                segment_info = filename.split('_')
+                if filename.endswith(".flac") and len(segment_info) > 1:
+                    segment_idx = segment_info[1].split('.')[0]
+                    output_filename = f"keyframe_{segment_idx}.{output_format}"
+                    output_path = os.path.join(audio_clip_output_dir, output_filename)
+                    if os.path.exists(output_path):
+                        print(f"File {output_path} already exists. Overwriting.")
+                    audio = AudioSegment.from_file(file_path, format="flac")
+                    audio.export(output_path, format=output_format)
+                    print(f"Converted {file_path} to {output_path}")
+                    os.remove(file_path)
+                    print(f"Removed {file_path}")
+                if filename.endswith(".json"):
                     new_json_path = os.path.join(audio_clip_output_dir, filename)
                     if file_path != new_json_path:
                         shutil.copy(file_path, new_json_path)

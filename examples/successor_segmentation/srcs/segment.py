@@ -2,7 +2,7 @@ from srcs.rename_and_move import main as rename_and_move_main
 from srcs.segment_averaging import main as segment_averaging_main
 from srcs.move_and_group import main as move_and_group_main
 from srcs.save_to_webdataset import main as save_to_webdataset_main
-from srcs.whisper import process_audio_files
+from srcs.whisper import main as whisper_main
 from srcs.successor_segmentation import SegmentSuccessorAnalyzer, run_analysis
 from srcs.fold_seams import main as fold_seams_main
 from srcs.convert_types import main as convert_types_main
@@ -43,7 +43,7 @@ def run_all_scripts():
         move_and_group_main()
         remove_incomplete_video_directories(completedirectory)
         print('Running process_audio_files')
-        process_audio_files()
+        whisper_main()
         print('Running convert_types')
         convert_types_main()
         print('Running save_to_webdataset')

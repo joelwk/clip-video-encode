@@ -154,7 +154,7 @@ def process_from_directory():
                     continue
             image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
             output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
-            audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips", "whisper_audio_segments")
+            audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips")
             process_keyframe_audio_pairs(image_dir, audio_dir, output_dir)
         except Exception as e:
             print(f"Failed to process images and pair with audio for video {video}: {e}")
@@ -171,7 +171,7 @@ def process_from_wds():
         output_dir = os.path.join(params['outputs'], "image_audio_pairs", video_id)
         face_detected_in_video = False
         for key, value in sample.items():
-            if key.endswith('flac') and isinstance(value, AudioSegment):
+            if key.endswith('mp3') and isinstance(value, AudioSegment):
                 segment_key = sample['__key__']
                 segment_match = re.search(r'keyframe_(\d+)', segment_key)
                 if segment_match:
