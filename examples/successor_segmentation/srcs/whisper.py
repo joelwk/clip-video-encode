@@ -120,8 +120,7 @@ def time_to_seconds(timestr):
     h, m, s = timestr.split(':')
     return int(h) * 3600 + int(m) * 60 + float(s)
 
-def write_transcripts_for_keyframes(transcripts, keyframe_timestamps, output_dir):
-    yt_output_dir = os.path.join(output_dir, 'yt_audio_segments') 
+def write_transcripts_for_keyframes(transcripts, keyframe_timestamps, yt_output_dir):
     if not os.path.exists(yt_output_dir):
         os.makedirs(yt_output_dir)
     for keyframe in keyframe_timestamps:
@@ -146,8 +145,8 @@ def process_audio_files():
     for video_dir in os.listdir(base_path):
         n = video_dir
         initial_input_directory = os.path.join(base_path, n, 'originalvideos')
-        audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
-        full_audio_clip_output_dir = os.path.join(audio_clip_output_dir, 'full_whisper_segments')
+        audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips')
+        full_audio_clip_output_dir = os.path.join(audio_clip_output_dir, 'whisper_audio_segments', 'full_whisper_segments')
         keyframe_dir = os.path.join(base_path, n, 'keyframes')
         keyframe_json_path = os.path.join(keyframe_dir, 'keyframe_data.json')
         if not os.path.exists(keyframe_json_path):
@@ -163,8 +162,10 @@ def process_audio_files():
             process_entire_audio(audio_path, full_audio_clip_output_dir, evaluations)
 
 def process_individual_audio_file(audio_file,audio_path,initial_input_directory, audio_clip_output_dir, keyframe_data, evaluations, video_id, config_params):
-    segment_audio_using_keyframes(audio_path, audio_clip_output_dir, keyframe_data, int(evaluations['max_duration_ms']), suffix_=None)
-    individual_output_dir = os.path.join(audio_clip_output_dir, os.path.splitext(audio_file)[0])
+    whisper_output_dir = os.path.join(audio_clip_output_dir, 'whisper_audio_segments')
+    yt_output_dir = os.path.join(audio_clip_output_dir, 'yt_audio_segments')
+    segment_audio_using_keyframes(audio_path, whisper_output_dir, keyframe_data, int(evaluations['max_duration_ms']), suffix_=None)
+    individual_output_dir = os.path.join(whisper_output_dir, os.path.splitext(audio_file)[0])
     if not os.path.exists(individual_output_dir):
         os.makedirs(individual_output_dir)
     convert_audio_files(initial_input_directory, individual_output_dir)
@@ -183,7 +184,7 @@ def process_individual_audio_file(audio_file,audio_path,initial_input_directory,
                     yt_transcripts = yt_transcripts['yt_meta_dict']['subtitles']
                     with open(keyframe_timeframes_path, 'r') as kf:
                         keyframe_timeframes = json.load(kf)
-                    yt_output_dir = os.path.join(audio_clip_output_dir, 'yt_audio_segments')
+                    
                     write_transcripts_for_keyframes(yt_transcripts, keyframe_timeframes, yt_output_dir)
                 else:
                     print(f"Unexpected JSON structure in {yt_transcripts_path}")
