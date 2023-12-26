@@ -115,34 +115,39 @@ def process_keyframe_audio_pairs(faces_dir, audio_dir, output_dir):
         os.makedirs(output_dir)
     audio_dir = os.path.join(audio_dir, "whisper_audio_segments")
     text_dir_whisper = os.path.join(audio_dir, "whisper_text_segments")
-    text_dir_yt = os.path.join(audio_dir, "yt_audio_segments")
+    text_dir_yt = os.path.join(audio_dir.replace("whisper_audio_segments", ""), "yt_audio_segments")
     keyframe_filenames = [f for f in os.listdir(faces_dir) if f.endswith('.png')]
     for keyframe_filename in keyframe_filenames:
         segment_match = re.search(r'keyframe_(\d+)', keyframe_filename)
-        video_match = faces_dir.split('/')[-1]
-        video_match = re.search(r'(\d+)', video_match)
-        video_idx = int(video_match.group(1))
         if segment_match:
-            segment_idx = int(segment_match.group(1))
+            segment_idx = segment_match.group(1)
             audio_filename = f"keyframe_{segment_idx}.mp3"
-            text_filename = f"keyframe_{segment_idx}.txt"
+            text_filename_whisper = f"keyframe_{segment_idx}_transcripts.txt"
+            text_filename_yt = f"keyframe_{segment_idx}_yt_transcripts.txt"
             audio_path = os.path.join(audio_dir, audio_filename)
-            text_path = os.path.join(audio_dir, text_filename)
+            text_path_whisper = os.path.join(text_dir_whisper, text_filename_whisper)
+            text_path_yt = os.path.join(text_dir_yt, text_filename_yt)
             image_path = os.path.join(faces_dir, keyframe_filename)
             if os.path.isfile(audio_path):
                 output_audio_path = os.path.join(output_dir, audio_filename)
                 shutil.copy(audio_path, output_audio_path)
                 print(f"Copied {audio_path} to {output_audio_path}")
-            if os.path.isfile(text_path):
-                output_text_path = os.path.join(output_dir, text_filename)
-                shutil.copy(text_path, output_text_path)
-                print(f"Copied {text_path} to {output_text_path}")
+            if os.path.isfile(text_path_whisper):
+                output_text_path = os.path.join(output_dir, text_filename_whisper)
+                shutil.copy(text_path_whisper, output_text_path)
+                print(f"Copied {text_path_whisper} to {output_text_path}")
+            elif os.path.isfile(text_path_yt):
+                output_text_path = os.path.join(output_dir, text_filename_yt)
+                shutil.copy(text_path_yt, output_text_path)
+                print(f"Copied {text_path_yt} to {output_text_path}")
+            else:
+                print(f"No transcript found for keyframe {segment_idx} in either whisper or YT directories.")
             if os.path.isfile(image_path):
                 output_image_path = os.path.join(output_dir, keyframe_filename)
                 shutil.copy(image_path, output_image_path)
                 print(f"Copied {image_path} to {output_image_path}")
         else:
-            print(f"No digits found in filename: {keyframe_filename}")
+            print(f"No matching segment found in filename: {keyframe_filename}")
             
 def format_labels(labels, key):
     return [label.strip() for label in labels[key].replace('\\\n', '').split(',')]

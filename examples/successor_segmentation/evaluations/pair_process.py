@@ -92,8 +92,8 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                 audio_json_path = os.path.join(audio_processed_base_path, f'{video_id}', f'keyframe_{keyframe_id}_analysis.json')
                 audio_json_path_vocals = os.path.join(audio_processed_base_path, f'{video_id}', f'keyframe_{keyframe_id}_vocals_analysis.json')
                 audio_json_to_use = audio_json_path_vocals if os.path.exists(audio_json_path_vocals) else audio_json_path
-                text_filename = f"video_{video_id}_keyframe_audio_clip_{keyframe_id}.txt"
-                text_file_path = os.path.join(path_image_audio_pairs, text_filename)
+                text_files_pattern = os.path.join(path_image_audio_pairs, f'keyframe_{keyframe_id}*.txt')
+                text_files = glob.glob(text_files_pattern)
                 if os.path.exists(audio_json_to_use):
                     output_json_path = os.path.join(video_output_dir, f'output_combined_emotions_{keyframe_id}.json')
                     combine_emotion_scores(image_json_file, audio_json_to_use, output_json_path)
@@ -108,11 +108,13 @@ def process_all_keyframes(video_base_path, audio_processed_base_path, output_bas
                     for file_path in [audio_file_path, audio_npy_file_path]:
                         if os.path.exists(file_path):
                             shutil.copy(file_path, video_output_dir)
-                    if os.path.exists(text_file_path):
-                        shutil.copy(text_file_path, video_output_dir)
-                        print(f'Processed audio file copied for keyframe {keyframe_id} of video {video_id}')
-                    else:
-                        print(f'Text file not found for keyframe {keyframe_id}, skipping: {text_file_path}')
+                    for text_file_path in text_files:
+                        # Copy each matching text file to the output directory
+                        if os.path.exists(text_file_path):
+                            shutil.copy(text_file_path, video_output_dir)
+                            print(f'Processed text file copied for keyframe {keyframe_id} of video {video_id}: {text_file_path}')
+                        else:
+                            print(f'Text file not found for keyframe {keyframe_id}, skipping: {text_file_path}')
 
 def main():
     params = read_config(section="evaluations")
