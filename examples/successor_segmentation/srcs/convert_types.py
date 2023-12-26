@@ -12,10 +12,8 @@ def convert_audio_files(base_path, output_format="mp3"):
         audio_clip_output_dir = os.path.join(base_path, n, 'keyframe_audio_clips', 'whisper_audio_segments')
         if not os.path.exists(audio_clip_output_dir):
             os.makedirs(audio_clip_output_dir)
-
         for subdir, dirs, files in os.walk(audio_clip_output_dir):
             for filename in files:
-                print('filename', filename)
                 file_path = os.path.join(subdir, filename)
                 segment_info = filename.split('_')
                 if filename.endswith(".flac") and len(segment_info) > 1:

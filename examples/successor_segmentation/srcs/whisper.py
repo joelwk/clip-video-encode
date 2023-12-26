@@ -32,9 +32,7 @@ def convert_audio_files(input_directory, output_directory, output_format="flac")
         if filename.endswith(".m4a"):
             m4a_path = os.path.join(input_directory, filename)
             output_filename = os.path.splitext(filename)[0] + f".{output_format}"
-            print('output_filename',output_filename)
             output_path = os.path.join(output_directory, output_filename)
-            print('output_path',output_path)
             if os.path.exists(output_path):
                 print(f"File {output_path} already exists. Overwriting.")
             audio = AudioSegment.from_file(m4a_path, format="m4a")
