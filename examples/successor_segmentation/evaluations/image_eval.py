@@ -139,6 +139,12 @@ def process_from_directory():
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
         try:
+            image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
+            output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
+            # Skip if the video has already been processed
+            if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
+                print(f"Skipping already processed video: {video}")
+                continue
             face_detected_in_video = False
             keyframes = load_key_image_files(video, params)
             for keyframe in keyframes:
@@ -152,8 +158,6 @@ def process_from_directory():
                         shutil.rmtree(video__original_dir)
                         print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
                     continue
-            image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
-            output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
             audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips")
             process_keyframe_audio_pairs(image_dir, audio_dir, output_dir)
         except Exception as e:
@@ -161,27 +165,30 @@ def process_from_directory():
 
 def process_from_wds():
     params = read_config(section="evaluations")
-    dataset_paths =  glob.glob(f"{params['wds_dir']}/completed_datasets-*.tar")
+    dataset_paths = glob.glob(f"{params['wds_dir']}/completed_datasets-*.tar")
     dataset = wds.WebDataset(dataset_paths).map(process_files)
-    whisper_segments = {}
-    text_segments = {}
     for sample in dataset:
         video_id = sample['__key__'].split('/')[0]
         image_dir = os.path.join(params['outputs'], "image_evaluations", video_id)
         output_dir = os.path.join(params['outputs'], "image_audio_pairs", video_id)
         face_detected_in_video = False
+        if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
+            print(f"Skipping already processed video_id: {video_id}")
+            continue
+        whisper_segments = {}
+        text_segments = {}
         for key, value in sample.items():
             if key.endswith('mp3') and isinstance(value, AudioSegment):
                 segment_key = sample['__key__']
                 segment_match = re.search(r'keyframe_(\d+)', segment_key)
                 if segment_match:
-                    segment_id = segment_match.group(1)
+                    segment_id = str(segment_match.group(1))
                     whisper_segments[segment_id] = value
             if key.endswith('txt'):
                 segment_key = sample['__key__']
                 segment_match = re.search(r'keyframe_(\d+)', segment_key)
                 if segment_match:
-                    segment_id = segment_match.group(1)
+                    segment_id = str(segment_match.group(1))
                     try:
                         text_content = value
                         text_segments[segment_id] = text_content
@@ -190,8 +197,11 @@ def process_from_wds():
             if key.endswith('png') and isinstance(value, Image.Image):
                 keyframe_match = re.search(r'keyframe_(\d+)_timestamp', sample['__key__'])
                 if keyframe_match:
-                    keyframe_id = keyframe_match.group(1)
+                    keyframe_id = str(keyframe_match.group(1))
                     keyframe_filename = f"keyframe_{keyframe_id}.png"
+                    if os.path.exists(os.path.join(output_dir, keyframe_filename)):
+                        print(f"Skipping already processed keyframe: {keyframe_id} for video_id: {video_id}")
+                        continue
                     if zeroshot_classifier(value, video_id, image_dir, key=keyframe_filename, display_image=False):
                         face_detected_in_video = True
                         if keyframe_id in whisper_segments:
@@ -208,5 +218,6 @@ def main():
         process_from_directory()
     elif params['mode'] == 'wds':
         process_from_wds()
+
 if __name__ == '__main__':
     main()
