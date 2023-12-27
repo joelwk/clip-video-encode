@@ -139,12 +139,6 @@ def process_from_directory():
     video_ids = get_all_video_ids(params['completedatasets'])
     for video in video_ids:
         try:
-            image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
-            output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
-            # Skip if the video has already been processed
-            if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
-                print(f"Skipping already processed video: {video}")
-                continue
             face_detected_in_video = False
             keyframes = load_key_image_files(video, params)
             for keyframe in keyframes:
@@ -158,6 +152,8 @@ def process_from_directory():
                         shutil.rmtree(video__original_dir)
                         print(f"No faces detected in any keyframes of video {video}. Directory {video_dir} removed.")
                     continue
+            image_dir = os.path.join(params['outputs'], "image_evaluations", str(video))
+            output_dir = os.path.join(params['outputs'], "image_audio_pairs", str(video))
             audio_dir = os.path.join(params['completedatasets'], str(video), "keyframe_audio_clips")
             process_keyframe_audio_pairs(image_dir, audio_dir, output_dir)
         except Exception as e:
