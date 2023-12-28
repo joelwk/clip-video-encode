@@ -161,18 +161,16 @@ def process_from_directory():
 
 def process_from_wds():
     params = read_config(section="evaluations")
-    dataset_paths = glob.glob(f"{params['wds_dir']}/completed_datasets-*.tar")
+    dataset_paths =  glob.glob(f"{params['wds_dir']}/completed_datasets-*.tar")
     dataset = wds.WebDataset(dataset_paths).map(process_files)
+    whisper_segments = {}
+    text_segments = {}
+    #TODO: Add checks to avoid reproreprocessing
     for sample in dataset:
         video_id = sample['__key__'].split('/')[0]
         image_dir = os.path.join(params['outputs'], "image_evaluations", video_id)
         output_dir = os.path.join(params['outputs'], "image_audio_pairs", video_id)
         face_detected_in_video = False
-        if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
-            print(f"Skipping already processed video_id: {video_id}")
-            continue
-        whisper_segments = {}
-        text_segments = {}
         for key, value in sample.items():
             if key.endswith('mp3') and isinstance(value, AudioSegment):
                 segment_key = sample['__key__']
@@ -195,9 +193,6 @@ def process_from_wds():
                 if keyframe_match:
                     keyframe_id = str(keyframe_match.group(1))
                     keyframe_filename = f"keyframe_{keyframe_id}.png"
-                    if os.path.exists(os.path.join(output_dir, keyframe_filename)):
-                        print(f"Skipping already processed keyframe: {keyframe_id} for video_id: {video_id}")
-                        continue
                     if zeroshot_classifier(value, video_id, image_dir, key=keyframe_filename, display_image=False):
                         face_detected_in_video = True
                         if keyframe_id in whisper_segments:
@@ -206,7 +201,7 @@ def process_from_wds():
                             move_paired(audio_segment, text_content, output_dir, f"keyframe_{keyframe_id}")
                             paired_png = os.path.join(image_dir, keyframe_filename)
                             shutil.copy(paired_png, output_dir)
-                            print(f"Paired keyframe {keyframe_id} with its whisper segment and text")
+                            print(f"Paired keyframe {str(keyframe_id)} with its whisper segment and text")
                             
 def main():
     params = read_config(section="config_params")

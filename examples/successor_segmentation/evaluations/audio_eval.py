@@ -193,7 +193,7 @@ def main():
             continue
         except Exception as e:
             print(f"An unexpected error occurred for video {video}: {e}")
-            # Cleanup this video
+            #TODO: improve logic for handling errors
            # shutil.rmtree(f"{params['completedatasets']}/{str(video)}")
             shutil.rmtree(output_path)
             continue
