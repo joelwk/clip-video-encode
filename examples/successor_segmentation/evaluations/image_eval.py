@@ -29,12 +29,13 @@ from evaluations.prepare import (
 )
     
 def is_good_image(is_person, face_probs, orientation_probs, engagement_probs):
+    thresholds = read_config(section="thresholds")
     # Define thresholds
-    is_person_threshold = 0.95  # High probability of the subject being a person
-    single_face_threshold = 0.95  # High probability of there being only one face
-    facing_forward_threshold = 0.95  # High probability of the subject facing forward
-    engagement_threshold = 0.95  # High probability of the subject looking at the camera or not, depending on preference
-    type_person_threshold = 0.5  # Threshold for type of person detection
+    is_person_threshold = float(thresholds['is_person_threshold']) # High probability of the subject being a person
+    single_face_threshold = float(thresholds['single_face_threshold'])  # High probability of there being only one face
+    facing_forward_threshold = float(thresholds['facing_forward_threshold'])  # High probability of the subject facing forward
+    engagement_threshold = float(thresholds['engagement_threshold'])  # High probability of the subject looking at the camera or not, depending on preference
+    type_person_threshold = float(thresholds['type_person_threshold'])  # Threshold for type of person detection
 
     # Check conditions
     is_person_detected = is_person[1] > is_person_threshold
